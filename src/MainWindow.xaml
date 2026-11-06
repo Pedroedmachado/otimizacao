@@ -1,0 +1,635 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Grid xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+      xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
+      x:Name="Root" Background="#070B14" TextElement.Foreground="#E6EDF7" TextElement.FontFamily="Segoe UI Variable Text, Segoe UI">
+  <Grid.Resources>
+    <SolidColorBrush x:Key="Bg" Color="#070B14"/>
+    <SolidColorBrush x:Key="Panel" Color="#0B1222"/>
+    <SolidColorBrush x:Key="Card" Color="#0F1A30"/>
+    <SolidColorBrush x:Key="CardHover" Color="#13213D"/>
+    <SolidColorBrush x:Key="Line" Color="#1D2B4A"/>
+    <SolidColorBrush x:Key="Accent" Color="#2F8CFF"/>
+    <SolidColorBrush x:Key="Accent2" Color="#22D3EE"/>
+    <SolidColorBrush x:Key="Text" Color="#E6EDF7"/>
+    <SolidColorBrush x:Key="Muted" Color="#8394B4"/>
+    <SolidColorBrush x:Key="Ok" Color="#22C55E"/>
+    <SolidColorBrush x:Key="Warn" Color="#F59E0B"/>
+    <SolidColorBrush x:Key="Bad" Color="#EF4444"/>
+    <LinearGradientBrush x:Key="AccentGrad" StartPoint="0,0" EndPoint="1,1">
+      <GradientStop Color="#3B82F6" Offset="0"/>
+      <GradientStop Color="#06B6D4" Offset="1"/>
+    </LinearGradientBrush>
+
+    <Style TargetType="TextBlock">
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+
+    <Style x:Key="H1" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="26"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Margin" Value="0,0,0,4"/>
+    </Style>
+    <Style x:Key="Sub" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="11"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+    </Style>
+
+    <Style x:Key="CardBorder" TargetType="Border">
+      <Setter Property="Background" Value="{StaticResource Card}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="CornerRadius" Value="12"/>
+      <Setter Property="Padding" Value="18"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+    </Style>
+
+    <!-- Botão principal -->
+    <Style x:Key="Primary" TargetType="Button">
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Padding" Value="20,10"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" CornerRadius="10" Background="{StaticResource AccentGrad}" Padding="{TemplateBinding Padding}">
+              <Border.Effect>
+                <DropShadowEffect Color="#2F8CFF" BlurRadius="18" ShadowDepth="0" Opacity="0.45"/>
+              </Border.Effect>
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.88"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="b" Property="Opacity" Value="0.7"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.35"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Botão secundário -->
+    <Style x:Key="Ghost" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="FontSize" Value="13"/>
+      <Setter Property="Padding" Value="14,8"/>
+      <Setter Property="Margin" Value="0,0,8,0"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" CornerRadius="9" Background="#12203A" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="{TemplateBinding Padding}">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="BorderBrush" Value="#2F8CFF"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="b" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Botões da barra de título -->
+    <Style x:Key="TitleBtn" TargetType="Button">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Width" Value="46"/>
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="FontFamily" Value="Segoe MDL2 Assets"/>
+      <Setter Property="FontSize" Value="10"/>
+      <Setter Property="shell:WindowChrome.IsHitTestVisibleInChrome" Value="True"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="b" Background="Transparent"><ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="#1A2742"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Navegação lateral -->
+    <Style x:Key="Nav" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="FontSize" Value="14"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="GroupName" Value="nav"/>
+      <Setter Property="Margin" Value="10,2"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="b" CornerRadius="9" Background="Transparent" Padding="12,10">
+              <Grid>
+                <Border x:Name="bar" Width="3" CornerRadius="2" Background="{StaticResource Accent}" HorizontalAlignment="Left" Margin="-12,2,0,2" Visibility="Hidden"/>
+                <ContentPresenter VerticalAlignment="Center"/>
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="b" Property="Background" Value="#101B33"/><Setter Property="Foreground" Value="#E6EDF7"/></Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="b" Property="Background" Value="#13254A"/>
+                <Setter TargetName="bar" Property="Visibility" Value="Visible"/>
+                <Setter Property="Foreground" Value="#FFFFFF"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Caixa de seleção -->
+    <Style x:Key="Check" TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Border x:Name="box" Width="20" Height="20" CornerRadius="5" BorderThickness="1.5" BorderBrush="#3A4A6B" Background="#0B1222" VerticalAlignment="Center">
+                <Path x:Name="mark" Data="M 4 10 L 8 14 L 16 5" Stroke="White" StrokeThickness="2.2" Visibility="Collapsed" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+              </Border>
+              <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="box" Property="Background" Value="#2F8CFF"/>
+                <Setter TargetName="box" Property="BorderBrush" Value="#2F8CFF"/>
+                <Setter TargetName="mark" Property="Visibility" Value="Visible"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="box" Property="BorderBrush" Value="#2F8CFF"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <!-- Interruptor -->
+    <Style x:Key="Toggle" TargetType="CheckBox">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="VerticalAlignment" Value="Center"/>
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="CheckBox">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Border x:Name="track" Width="40" Height="22" CornerRadius="11" Background="#24324F">
+                <Ellipse x:Name="knob" Width="16" Height="16" Fill="#A9B6CF" HorizontalAlignment="Left" Margin="3,0"/>
+              </Border>
+              <ContentPresenter Margin="10,0,0,0" VerticalAlignment="Center"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="track" Property="Background" Value="#2F8CFF"/>
+                <Setter TargetName="knob" Property="HorizontalAlignment" Value="Right"/>
+                <Setter TargetName="knob" Property="Fill" Value="White"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter TargetName="track" Property="Opacity" Value="0.4"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="TextBox">
+      <Setter Property="Background" Value="#0B1222"/>
+      <Setter Property="Foreground" Value="{StaticResource Text}"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+      <Setter Property="CaretBrush" Value="White"/>
+      <Setter Property="Padding" Value="6,4"/>
+    </Style>
+
+    <!-- Barra de rolagem fina -->
+    <Style TargetType="ScrollBar">
+      <Setter Property="Width" Value="8"/>
+      <Setter Property="MinWidth" Value="8"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ScrollBar">
+            <Track x:Name="PART_Track" IsDirectionReversed="True">
+              <Track.Thumb>
+                <Thumb>
+                  <Thumb.Template>
+                    <ControlTemplate TargetType="Thumb">
+                      <Border CornerRadius="4" Background="#26365A" Margin="1"/>
+                    </ControlTemplate>
+                  </Thumb.Template>
+                </Thumb>
+              </Track.Thumb>
+            </Track>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style TargetType="ProgressBar">
+      <Setter Property="Height" Value="6"/>
+      <Setter Property="Foreground" Value="{StaticResource AccentGrad}"/>
+      <Setter Property="Background" Value="#1A2742"/>
+      <Setter Property="BorderThickness" Value="0"/>
+    </Style>
+  </Grid.Resources>
+
+  <Grid.RowDefinitions>
+    <RowDefinition Height="44"/>
+    <RowDefinition Height="*"/>
+  </Grid.RowDefinitions>
+
+  <!-- ======== Barra de título ======== -->
+  <Grid Grid.Row="0" Background="#060A12">
+    <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Margin="16,0,0,0">
+      <Border Width="26" Height="26" CornerRadius="7" Background="{StaticResource AccentGrad}">
+        <Path Data="M 14 3 L 6 15 L 12 15 L 10 23 L 20 10 L 14 10 Z" Fill="White" Stretch="Uniform" Margin="6"/>
+      </Border>
+      <TextBlock Text="VOLTCORE" FontWeight="Bold" FontSize="14" Margin="10,0,0,0" VerticalAlignment="Center"/>
+      <TextBlock Text="OPTIMIZER" FontSize="14" Foreground="{StaticResource Accent2}" Margin="6,0,0,0" VerticalAlignment="Center"/>
+      <Border x:Name="AdminPill" CornerRadius="8" Background="#10331F" Padding="8,2" Margin="14,0,0,0" VerticalAlignment="Center">
+        <TextBlock Text="● Administrador" FontSize="11" Foreground="#4ADE80"/>
+      </Border>
+    </StackPanel>
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button x:Name="BtnMin" Style="{StaticResource TitleBtn}" Content="&#xE921;"/>
+      <Button x:Name="BtnMax" Style="{StaticResource TitleBtn}" Content="&#xE922;"/>
+      <Button x:Name="BtnClose" Style="{StaticResource TitleBtn}" Content="&#xE8BB;"/>
+    </StackPanel>
+  </Grid>
+
+  <Grid Grid.Row="1">
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="230"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- ======== Menu lateral ======== -->
+    <Border Grid.Column="0" Background="{StaticResource Panel}" BorderBrush="{StaticResource Line}" BorderThickness="0,0,1,0">
+      <DockPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="18,10,18,16">
+          <TextBlock Style="{StaticResource Label}" Text="SISTEMA"/>
+          <TextBlock x:Name="SideCpu" Text="CPU —" FontSize="12" Margin="0,6,0,0"/>
+          <ProgressBar x:Name="SideCpuBar" Margin="0,4,0,0" Maximum="100"/>
+          <TextBlock x:Name="SideRam" Text="RAM —" FontSize="12" Margin="0,10,0,0"/>
+          <ProgressBar x:Name="SideRamBar" Margin="0,4,0,0" Maximum="100"/>
+        </StackPanel>
+        <StackPanel x:Name="NavPanel" Margin="0,14,0,0">
+          <TextBlock Style="{StaticResource Label}" Text="OTIMIZAR" Margin="22,4,0,6"/>
+          <RadioButton x:Name="NavHome" Style="{StaticResource Nav}" Tag="PageHome" IsChecked="True">⌂   Painel</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageBoost">⚡   Boost</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageDebloat">🧹   Debloat</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PagePerf">🚀   Desempenho</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageMem">▦   Memória</RadioButton>
+          <TextBlock Style="{StaticResource Label}" Text="SISTEMA" Margin="22,14,0,6"/>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageWin">⊞   Windows</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageGames">🎮   Jogos</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageHw">🖥   Hardware</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageRestore">↺   Restauração</RadioButton>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ======== Conteúdo ======== -->
+    <Grid Grid.Column="1">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <Grid.Background>
+        <RadialGradientBrush Center="0.75,0" GradientOrigin="0.75,0" RadiusX="0.8" RadiusY="0.7">
+          <GradientStop Color="#0E1F45" Offset="0"/>
+          <GradientStop Color="#070B14" Offset="1"/>
+        </RadialGradientBrush>
+      </Grid.Background>
+
+      <!-- PAINEL -->
+      <ScrollViewer x:Name="PageHome" VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock x:Name="Hello" Style="{StaticResource H1}" Text="Olá!"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Seu PC no máximo: menos lixo da Microsoft, mais FPS e menos input lag." Margin="0,0,0,20"/>
+          <Grid>
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="280"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,14,14">
+              <StackPanel HorizontalAlignment="Center">
+                <TextBlock Style="{StaticResource Label}" Text="NOTA DO SEU PC" HorizontalAlignment="Center"/>
+                <Grid Width="200" Height="170" Margin="0,10,0,0">
+                  <Path x:Name="GaugeBg" Stroke="#1D2B4A" StrokeThickness="14" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                  <Path x:Name="GaugeArc" StrokeThickness="14" StrokeStartLineCap="Round" StrokeEndLineCap="Round">
+                    <Path.Stroke>
+                      <LinearGradientBrush StartPoint="0,1" EndPoint="1,0">
+                        <GradientStop Color="#EF4444" Offset="0"/>
+                        <GradientStop Color="#F59E0B" Offset="0.35"/>
+                        <GradientStop Color="#22D3EE" Offset="0.7"/>
+                        <GradientStop Color="#2F8CFF" Offset="1"/>
+                      </LinearGradientBrush>
+                    </Path.Stroke>
+                    <Path.Effect><DropShadowEffect Color="#2F8CFF" BlurRadius="16" ShadowDepth="0" Opacity="0.6"/></Path.Effect>
+                  </Path>
+                  <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0,20,0,0">
+                    <TextBlock x:Name="ScoreText" Text="—" FontSize="46" FontWeight="Bold" HorizontalAlignment="Center"/>
+                    <TextBlock x:Name="ScoreLabel" Text="calculando" Style="{StaticResource Sub}" HorizontalAlignment="Center"/>
+                  </StackPanel>
+                </Grid>
+                <Button x:Name="HomeBoost" Style="{StaticResource Primary}" Content="⚡  Boost em 1 clique" Margin="0,6,0,0"/>
+              </StackPanel>
+            </Border>
+            <UniformGrid Grid.Column="1" Columns="2" Rows="2">
+              <Border Style="{StaticResource CardBorder}" Margin="0,0,14,14">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource Label}" Text="PROCESSADOR"/>
+                  <TextBlock x:Name="HomeCpu" Text="—" FontSize="30" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                  <ProgressBar x:Name="HomeCpuBar" Maximum="100" Margin="0,8,0,0"/>
+                  <TextBlock x:Name="HomeCpuName" Style="{StaticResource Sub}" Margin="0,8,0,0" FontSize="12"/>
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource Label}" Text="MEMÓRIA EM USO"/>
+                  <TextBlock x:Name="HomeRam" Text="—" FontSize="30" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                  <ProgressBar x:Name="HomeRamBar" Maximum="100" Margin="0,8,0,0"/>
+                  <TextBlock x:Name="HomeRamSub" Style="{StaticResource Sub}" Margin="0,8,0,0" FontSize="12"/>
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource CardBorder}" Margin="0,0,14,14">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource Label}" Text="MEMÓRIA LIBERADA (SESSÃO)"/>
+                  <TextBlock x:Name="HomeFreed" Text="0 MB" FontSize="30" FontWeight="SemiBold" Margin="0,6,0,0"/>
+                  <Button x:Name="HomeClean" Style="{StaticResource Ghost}" Content="Limpar memória agora" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                </StackPanel>
+              </Border>
+              <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14">
+                <StackPanel>
+                  <TextBlock Style="{StaticResource Label}" Text="PONTO DE RESTAURAÇÃO"/>
+                  <TextBlock x:Name="HomeRestore" Text="—" FontSize="16" FontWeight="SemiBold" Margin="0,8,0,0"/>
+                  <Button x:Name="HomeRestoreBtn" Style="{StaticResource Ghost}" Content="Criar ponto agora" HorizontalAlignment="Left" Margin="0,10,0,0"/>
+                </StackPanel>
+              </Border>
+            </UniformGrid>
+          </Grid>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="O que ainda dá para melhorar" FontSize="16" FontWeight="SemiBold"/>
+              <StackPanel x:Name="HomeTips" Margin="0,10,0,0"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- BOOST -->
+      <ScrollViewer x:Name="PageBoost" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Boost em 1 clique"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Aplica de uma vez os ajustes recomendados para jogos e mostra sua nota subindo. Tudo pode ser desfeito." Margin="0,0,0,20"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <CheckBox x:Name="BoostRestore" Style="{StaticResource Check}" IsChecked="True" Content="Criar ponto de restauração antes" Margin="0,0,0,12"/>
+              <CheckBox x:Name="BoostTweaks" Style="{StaticResource Check}" IsChecked="True" Content="Boost completo (energia, GPU, rede, mouse, telemetria, propagandas)" Margin="0,0,0,12"/>
+              <CheckBox x:Name="BoostClean" Style="{StaticResource Check}" IsChecked="True" Content="Limpar arquivos temporários e memória" Margin="0,0,0,12"/>
+              <CheckBox x:Name="BoostScore" Style="{StaticResource Check}" IsChecked="True" Content="Recalcular a nota do seu PC" Margin="0,0,0,18"/>
+              <Button x:Name="BoostGo" Style="{StaticResource Primary}" Content="⚡  1 CLIQUE" FontSize="18" Padding="40,14" HorizontalAlignment="Left"/>
+              <ProgressBar x:Name="BoostProgress" Margin="0,18,0,0" Maximum="100" Visibility="Collapsed"/>
+              <TextBlock x:Name="BoostStatus" Style="{StaticResource Sub}" Margin="0,10,0,0"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="O que o Boost aplica" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <StackPanel x:Name="BoostList"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- DEBLOAT -->
+      <DockPanel x:Name="PageDebloat" Visibility="Collapsed">
+        <StackPanel DockPanel.Dock="Top" Margin="32,26,32,10">
+          <TextBlock Style="{StaticResource H1}" Text="Debloat — Windows limpo"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Tira apps que vieram instalados, Copilot, Edge em segundo plano e propaganda do Windows. Você escolhe item por item; cada um diz o que faz e pode ser desfeito." Margin="0,0,0,14"/>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Label}" Text="SELECIONAR NÍVEL:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <Button x:Name="DbLvl0" Style="{StaticResource Ghost}" Content="Essencial"/>
+            <Button x:Name="DbLvl1" Style="{StaticResource Ghost}" Content="Recomendado"/>
+            <Button x:Name="DbLvl2" Style="{StaticResource Ghost}" Content="Tudo (avançado)"/>
+            <Button x:Name="DbNone" Style="{StaticResource Ghost}" Content="Limpar seleção"/>
+          </StackPanel>
+        </StackPanel>
+        <Border DockPanel.Dock="Bottom" Background="#0A1222" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="32,12">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="DbApply" Style="{StaticResource Primary}" Content="Aplicar selecionados"/>
+            <Button x:Name="DbUndo" Style="{StaticResource Ghost}" Content="Desfazer selecionados" Margin="10,0,0,0"/>
+            <TextBlock x:Name="DbStatus" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+          </StackPanel>
+        </Border>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="DebloatList" Margin="32,6,32,20"/>
+        </ScrollViewer>
+      </DockPanel>
+
+      <!-- DESEMPENHO -->
+      <DockPanel x:Name="PagePerf" Visibility="Collapsed">
+        <StackPanel DockPanel.Dock="Top" Margin="32,26,32,10">
+          <TextBlock Style="{StaticResource H1}" Text="Desempenho"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Ajustes de energia, CPU, GPU, rede e entrada para mais FPS e menos input lag. O valor original é salvo antes de cada mudança." Margin="0,0,0,14"/>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock Style="{StaticResource Label}" Text="SELECIONAR NÍVEL:" VerticalAlignment="Center" Margin="0,0,10,0"/>
+            <Button x:Name="PfLvl0" Style="{StaticResource Ghost}" Content="Essencial"/>
+            <Button x:Name="PfLvl1" Style="{StaticResource Ghost}" Content="Recomendado"/>
+            <Button x:Name="PfLvl2" Style="{StaticResource Ghost}" Content="Tudo (avançado)"/>
+            <Button x:Name="PfNone" Style="{StaticResource Ghost}" Content="Limpar seleção"/>
+          </StackPanel>
+        </StackPanel>
+        <Border DockPanel.Dock="Bottom" Background="#0A1222" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="32,12">
+          <StackPanel Orientation="Horizontal">
+            <Button x:Name="PfApply" Style="{StaticResource Primary}" Content="Aplicar selecionados"/>
+            <Button x:Name="PfUndo" Style="{StaticResource Ghost}" Content="Desfazer selecionados" Margin="10,0,0,0"/>
+            <TextBlock x:Name="PfStatus" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="14,0,0,0"/>
+          </StackPanel>
+        </Border>
+        <ScrollViewer VerticalScrollBarVisibility="Auto">
+          <StackPanel x:Name="PerfList" Margin="32,6,32,20"/>
+        </ScrollViewer>
+      </DockPanel>
+
+      <!-- MEMÓRIA -->
+      <ScrollViewer x:Name="PageMem" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Redução de memória"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Libera a RAM presa em cache (lista standby) e de programas parados — a causa de muitas travadinhas (stutter) em jogos." Margin="0,0,0,20"/>
+          <UniformGrid Columns="4">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,14"><StackPanel><TextBlock Style="{StaticResource Label}" Text="EM USO"/><TextBlock x:Name="MemUsed" FontSize="24" FontWeight="SemiBold" Text="—" Margin="0,6,0,0"/></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,14"><StackPanel><TextBlock Style="{StaticResource Label}" Text="LIVRE DE VERDADE"/><TextBlock x:Name="MemFree" FontSize="24" FontWeight="SemiBold" Text="—" Margin="0,6,0,0" Foreground="{StaticResource Ok}"/></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,14"><StackPanel><TextBlock Style="{StaticResource Label}" Text="CACHE (STANDBY)"/><TextBlock x:Name="MemStandby" FontSize="24" FontWeight="SemiBold" Text="—" Margin="0,6,0,0" Foreground="{StaticResource Warn}"/></StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14"><StackPanel><TextBlock Style="{StaticResource Label}" Text="MODIFICADA"/><TextBlock x:Name="MemModified" FontSize="24" FontWeight="SemiBold" Text="—" Margin="0,6,0,0"/></StackPanel></Border>
+          </UniformGrid>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <ProgressBar x:Name="MemBar" Maximum="100" Height="10"/>
+              <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button x:Name="MemQuick" Style="{StaticResource Primary}" Content="Limpeza rápida (cache)"/>
+                <Button x:Name="MemDeep" Style="{StaticResource Ghost}" Content="Limpeza completa" Margin="10,0,0,0"/>
+                <TextBlock x:Name="MemResult" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="10,0,0,0"/>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Sub}" Margin="0,10,0,0" FontSize="12" Text="Rápida: esvazia o cache standby e a lista modificada — segura com o jogo aberto. Completa: também força os programas abertos a devolverem memória (melhor antes de abrir o jogo)."/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <CheckBox x:Name="MemAuto" Style="{StaticResource Toggle}" Content="Limpeza automática em segundo plano" FontSize="15"/>
+              <TextBlock Style="{StaticResource Sub}" Margin="50,4,0,10" FontSize="12" Text="Funciona como o ISLC: limpa o cache standby sozinho quando a memória livre fica baixa. O app continua na bandeja quando você fecha a janela."/>
+              <StackPanel Orientation="Horizontal" Margin="50,0,0,0">
+                <TextBlock Text="Limpar quando o cache passar de" VerticalAlignment="Center"/>
+                <TextBox x:Name="MemStandbyLimit" Width="70" Margin="8,0" Text="1024"/>
+                <TextBlock Text="MB e a memória livre ficar abaixo de" VerticalAlignment="Center"/>
+                <TextBox x:Name="MemFreeLimit" Width="70" Margin="8,0" Text="2048"/>
+                <TextBlock Text="MB" VerticalAlignment="Center"/>
+              </StackPanel>
+              <TextBlock x:Name="MemAutoInfo" Style="{StaticResource Sub}" Margin="50,10,0,0" FontSize="12"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Programas que mais usam memória" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <StackPanel x:Name="MemTop"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- WINDOWS -->
+      <ScrollViewer x:Name="PageWin" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Windows e inicialização"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Inicialização limpa, limpeza de disco, reparo do Windows e revisão semanal automática." Margin="0,0,0,20"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <DockPanel>
+                <Button x:Name="StartRefresh" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Content="Atualizar" Margin="0"/>
+                <StackPanel>
+                  <TextBlock Text="Inicialização limpa" FontSize="16" FontWeight="SemiBold"/>
+                  <TextBlock Style="{StaticResource Sub}" Text="Escolha o que abre junto com o Windows. Desligar não desinstala nada."/>
+                </StackPanel>
+              </DockPanel>
+              <StackPanel x:Name="StartList" Margin="0,12,0,0"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Limpeza" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Sub}" Text="Mostra o espaço antes de limpar."/>
+              <StackPanel x:Name="CleanList" Margin="0,12,0,0"/>
+              <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                <Button x:Name="CleanScan" Style="{StaticResource Ghost}" Content="Analisar"/>
+                <Button x:Name="CleanGo" Style="{StaticResource Primary}" Content="Limpar selecionados"/>
+                <TextBlock x:Name="CleanStatus" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Reparo do Windows" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Sub}" Text="Ferramentas do próprio Windows para corrigir arquivos de sistema corrompidos. Abrem num console para você acompanhar." Margin="0,0,0,12"/>
+              <WrapPanel>
+                <Button x:Name="RepSfc" Style="{StaticResource Ghost}" Content="Verificar arquivos (SFC)" Margin="0,0,8,8"/>
+                <Button x:Name="RepDism" Style="{StaticResource Ghost}" Content="Reparar imagem (DISM)" Margin="0,0,8,8"/>
+                <Button x:Name="RepFull" Style="{StaticResource Ghost}" Content="Reparo completo (DISM + SFC)" Margin="0,0,8,8"/>
+                <Button x:Name="RepComp" Style="{StaticResource Ghost}" Content="Limpar componentes antigos" Margin="0,0,8,8"/>
+                <Button x:Name="RepNet" Style="{StaticResource Ghost}" Content="Resetar rede/DNS" Margin="0,0,8,8"/>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <CheckBox x:Name="WeeklyToggle" Style="{StaticResource Toggle}" Content="Revisão semanal automática" FontSize="15"/>
+              <TextBlock Style="{StaticResource Sub}" Margin="50,4,0,0" FontSize="12" Text="Todo domingo ao meio-dia limpa temporários, cache de atualizações e memória, sem você precisar lembrar."/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- JOGOS -->
+      <ScrollViewer x:Name="PageGames" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Jogos — cada jogo no máximo"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Ajustes específicos por jogo: prioridade alta, GPU dedicada, sem otimizações de tela cheia e núcleo 0 livre (o Windows atende interrupções no núcleo 0; deixá-lo livre reduz travadinhas)." Margin="0,0,0,16"/>
+          <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
+            <Button x:Name="GameDetect" Style="{StaticResource Primary}" Content="Detectar jogos (Steam/Epic)"/>
+            <Button x:Name="GameAdd" Style="{StaticResource Ghost}" Content="+ Adicionar jogo (.exe)" Margin="10,0,0,0"/>
+            <TextBlock x:Name="GameStatus" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="12,0,0,0"/>
+          </StackPanel>
+          <StackPanel x:Name="GameList"/>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- HARDWARE -->
+      <ScrollViewer x:Name="PageHw" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Hardware e check-up"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Seu PC por dentro e o que está segurando o desempenho." Margin="0,0,0,20"/>
+          <Border Style="{StaticResource CardBorder}">
+            <Grid x:Name="HwGrid">
+              <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+            </Grid>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <DockPanel>
+                <Button x:Name="HwRefresh" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Content="Refazer check-up" Margin="0"/>
+                <TextBlock Text="Check-up" FontSize="16" FontWeight="SemiBold"/>
+              </DockPanel>
+              <StackPanel x:Name="HwChecks" Margin="0,12,0,0"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- RESTAURAÇÃO -->
+      <ScrollViewer x:Name="PageRestore" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Restauração"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Tudo que o app faz pode ser desfeito: por ajuste, por ponto de restauração do Windows ou tudo de uma vez." Margin="0,0,0,20"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Pontos de restauração" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,10"/>
+              <StackPanel Orientation="Horizontal" Margin="0,0,0,12">
+                <Button x:Name="RpCreate" Style="{StaticResource Primary}" Content="Criar ponto agora"/>
+                <Button x:Name="RpOpen" Style="{StaticResource Ghost}" Content="Abrir Restauração do Sistema" Margin="10,0,0,0"/>
+                <TextBlock x:Name="RpStatus" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="4,0,0,0"/>
+              </StackPanel>
+              <StackPanel x:Name="RpList"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Desfazer tudo do app" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Sub}" Text="Volta todos os ajustes de registro aos valores originais salvos antes de cada mudança. Apps removidos precisam ser reinstalados pela Microsoft Store." Margin="0,4,0,12"/>
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="UndoAll" Style="{StaticResource Ghost}" Content="Desfazer todos os ajustes"/>
+                <Button x:Name="OpenLog" Style="{StaticResource Ghost}" Content="Ver registro de atividades"/>
+                <TextBlock x:Name="UndoStatus" Style="{StaticResource Sub}" VerticalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- Barra de status -->
+      <Border Grid.Row="1" Background="#060A12" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="16,6">
+        <DockPanel>
+          <TextBlock x:Name="RebootHint" DockPanel.Dock="Right" Foreground="{StaticResource Warn}" FontSize="12" Visibility="Collapsed" Text="⟳ Reinicie o PC para concluir alguns ajustes"/>
+          <TextBlock x:Name="StatusText" FontSize="12" Foreground="{StaticResource Muted}" Text="Pronto." TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+        </DockPanel>
+      </Border>
+    </Grid>
+  </Grid>
+</Grid>
