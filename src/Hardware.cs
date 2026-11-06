@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Management;
+using System.Text.RegularExpressions;
 
 namespace VoltCore
 {
@@ -19,6 +20,9 @@ namespace VoltCore
     {
         public bool Ok;
         public string Title, Detail;
+        public string FixLabel;      // texto do botão de correção
+        public Func<string> Fix;     // executa a correção e devolve a mensagem
+        public string GoTo;          // ou leva a uma aba
     }
 
     public static class Hardware
@@ -141,6 +145,58 @@ namespace VoltCore
             var drive = new DriveInfo(Path.GetPathRoot(Environment.SystemDirectory));
             double freePct = drive.TotalFreeSpace * 100.0 / drive.TotalSize;
             r.Add(new CheckItem { Ok = freePct >= 15, Title = "Espaço livre no disco do sistema", Detail = freePct.ToString("0") + "% livre (" + Fmt.Bytes(drive.TotalFreeSpace) + "). " + (freePct >= 15 ? "" : "Abaixo de 15% o Windows fica lento; use a Limpeza.") });
+
+            foreach (var d in Displays.List())
+            {
+                var disp = d;
+                bool ok = d.Hz >= d.MaxHz;
+                r.Add(new CheckItem
+                {
+                    Ok = ok,
+                    Title = "Taxa de atualização — " + d.Name,
+                    Detail = ok ? d.Width + "×" + d.Height + " a " + d.Hz + " Hz (máximo do monitor)." : "Rodando a " + d.Hz + " Hz, mas o monitor suporta " + d.MaxHz + " Hz! É o maior ganho de fluidez e input lag possível. Confira também se o cabo é DisplayPort/HDMI 2.x.",
+                    FixLabel = ok ? null : "Usar " + d.MaxHz + " Hz",
+                    Fix = ok ? (Func<string>)null : () => Displays.SetMaxRefresh(disp) ? "Monitor agora a " + disp.MaxHz + " Hz." : "Não foi possível mudar; ajuste em Configurações > Vídeo > Vídeo avançado."
+                });
+            }
+
+            var rebar = Platform.ResizableBar();
+            if (rebar.HasValue)
+                r.Add(new CheckItem { Ok = rebar.Value, Title = "Resizable BAR", Detail = rebar.Value ? "Ligado: a CPU acessa toda a memória da placa de vídeo." : "Desligado. Ative 'Above 4G Decoding' e 'Re-Size BAR Support' na BIOS (exige CSM desligado). Ganho de até 10% em vários jogos." });
+
+            foreach (var n in Nic.Connected().Where(x => x.Wired))
+            {
+                bool fast = n.SpeedBps > 100000000;
+                bool capable = Regex.IsMatch(n.Description ?? "", @"2\.5G|5G|10G|Gigabit|GbE|I2[0-9]{2}|Killer|AQtion|Ethernet Controller", RegexOptions.IgnoreCase);
+                if (!capable) continue;
+                r.Add(new CheckItem
+                {
+                    Ok = fast,
+                    Title = "Velocidade do cabo de rede",
+                    Detail = n.Description + " conectada a " + (n.SpeedBps >= 1000000000 ? (n.SpeedBps / 1e9).ToString("0.#") + " Gbps" : (n.SpeedBps / 1e6).ToString("0") + " Mbps") + "." +
+                             (fast ? "" : " A placa suporta mais: quase sempre é cabo ruim (Cat5 velho/danificado), mau contato ou porta do roteador. Troque por um cabo Cat6.")
+                });
+            }
+
+            bool hpet = Platform.HpetForced();
+            r.Add(new CheckItem
+            {
+                Ok = !hpet,
+                Title = "Timer do sistema (HPET)",
+                Detail = hpet ? "O HPET está forçado (useplatformclock), o que aumenta a latência. Remova para voltar ao padrão." : "Padrão do Windows (sem HPET forçado).",
+                FixLabel = hpet ? "Remover" : null,
+                Fix = hpet ? (Func<string>)(() => Platform.RemoveHpet() ? "HPET removido. Reinicie o PC." : "Não foi possível alterar o bcdedit.") : null
+            });
+
+            bool hvci = Platform.HvciRunning();
+            r.Add(new CheckItem
+            {
+                Ok = !hvci,
+                Title = "Integridade de Memória (HVCI)",
+                Detail = hvci ? "Ligada: mais segurança, mas custa de 5 a 10% de FPS em alguns jogos. Você pode desligar em Desempenho > Segurança x desempenho." : "Desligada.",
+                FixLabel = hvci ? "Ver opção" : null,
+                GoTo = hvci ? "PagePerf" : null
+            });
 
             bool ultimate = PowerPlan.IsUltimateActive();
             string plan = PowerPlan.ActiveName();

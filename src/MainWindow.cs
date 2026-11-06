@@ -188,6 +188,7 @@ namespace VoltCore
             F<TextBlock>("HomeCpuName").Text = _hw.Cpu;
             BuildHardware();
             BuildTips();
+            await BuildLatencyGuide();
         }
 
         private async Task UpdateScore()
@@ -462,6 +463,11 @@ namespace VoltCore
 
             F<Button>("GameDetect").Click += async (a, b) => await DetectGames();
             F<Button>("GameAdd").Click += (a, b) => AddGameManual();
+            F<Button>("OpenGpuPanel").Click += (a, b) => { try { if (_gpuPanel != null) _gpuPanel(); } catch (Exception ex) { Status("Não foi possível abrir o painel: " + ex.Message); } };
+            var def = F<CheckBox>("DefExcl");
+            def.IsChecked = Settings.GetBool("defender_excl", false);
+            def.Checked += async (a, b) => { Settings.Set("defender_excl", true); await SyncDefender(); };
+            def.Unchecked += async (a, b) => { Settings.Set("defender_excl", false); await SyncDefender(); };
 
             F<Button>("HwRefresh").Click += async (a, b) => { Status("Refazendo check-up…"); await RefreshHardware(); Status("Check-up atualizado."); };
 
@@ -507,6 +513,87 @@ namespace VoltCore
             var list = F<TextBox>("SessCloseList");
             list.Text = Settings.Get("close_list", BackgroundCloser.DefaultList);
             list.LostFocus += (a, b) => Settings.Set("close_list", list.Text.Replace("\r", "").Replace("\n", " "));
+        }
+
+        // ================== Guia de latência ==================
+        private async Task BuildLatencyGuide()
+        {
+            var displays = await Task.Run(() => Displays.List());
+            int hz = displays.Count > 0 ? displays.Max(d => d.MaxHz) : 60;
+            int cap = Displays.FpsCap(hz);
+            string gpu = _hw != null ? _hw.Gpu : "";
+            bool nv = gpu.IndexOf("NVIDIA", StringComparison.OrdinalIgnoreCase) >= 0;
+            bool amd = gpu.IndexOf("Radeon", StringComparison.OrdinalIgnoreCase) >= 0 || gpu.IndexOf("AMD", StringComparison.OrdinalIgnoreCase) >= 0;
+            var steps = new List<Tuple<string, string>>();
+            if (nv)
+            {
+                steps.Add(Tuple.Create("NVIDIA Reflex: \"Ligado + Boost\"", "Nas configurações de vídeo do jogo (CS2, Valorant, Fortnite, Apex, CoD, Overwatch, Marvel Rivals…). É o ajuste que mais reduz input lag quando a GPU está no limite."));
+                steps.Add(Tuple.Create("Modo de baixa latência: Ultra", "Painel de Controle NVIDIA > Gerenciar configurações 3D. Vale para jogos SEM Reflex (quando o jogo tem Reflex, ele manda)."));
+                steps.Add(Tuple.Create("G-SYNC ligado + V-Sync ligado no painel", "Painel NVIDIA > Configurar G-SYNC (tela cheia e janela) e V-Sync 'Ativado' no painel, DESLIGADO dentro do jogo. Sem tearing e sem o atraso do V-Sync tradicional."));
+                steps.Add(Tuple.Create("Limite de FPS em " + cap + " (monitor de " + hz + " Hz)", "Painel NVIDIA > Taxa de quadros máxima = " + cap + ". Mantém o G-SYNC sempre ativo. Com Reflex + G-SYNC + V-Sync o limite é aplicado automaticamente."));
+                steps.Add(Tuple.Create("Gerenciamento de energia: desempenho máximo", "Painel NVIDIA > configuração do programa (por jogo) > 'Preferir desempenho máximo'. Evita quedas de clock em jogos leves."));
+            }
+            else if (amd)
+            {
+                steps.Add(Tuple.Create("AMD Anti-Lag 2 (no jogo) ou Radeon Anti-Lag", "Anti-Lag 2 aparece nas opções do jogo (CS2 e outros). Nos demais, ative Radeon Anti-Lag no AMD Software > Jogos."));
+                steps.Add(Tuple.Create("FreeSync ligado + V-Sync 'Sempre ativado'", "AMD Software > Tela: FreeSync. V-Sync desligado dentro do jogo."));
+                steps.Add(Tuple.Create("Limite de FPS em " + cap + " (monitor de " + hz + " Hz)", "Radeon Chill ou FRTC com mínimo e máximo em " + cap + ", ou o limitador do próprio jogo."));
+                steps.Add(Tuple.Create("Radeon Boost / Super Resolution desligados", "Eles mudam a resolução dinamicamente e podem causar inconsistência na mira."));
+            }
+            else
+            {
+                steps.Add(Tuple.Create("Tecnologia de baixa latência do jogo", "Ative Reflex / Anti-Lag / XeLL nas opções de vídeo do jogo, se existir."));
+                steps.Add(Tuple.Create("VRR ligado + limite de FPS em " + cap, "Com monitor de taxa variável, limite o FPS um pouco abaixo de " + hz + " Hz."));
+            }
+            steps.Add(Tuple.Create("Tela cheia exclusiva ou sem bordas otimizado", "No Windows 11 o modo sem bordas já é tão rápido quanto tela cheia com a opção 'Otimizações para jogos em janela' (aba Desempenho)."));
+            steps.Add(Tuple.Create("Sem monitor VRR / jogo competitivo puro", "V-Sync desligado e FPS o mais alto possível (bem acima de " + hz + "). Aceita tearing em troca do menor atraso."));
+
+            var host = F<StackPanel>("LatGuide");
+            host.Children.Clear();
+            int n = 0;
+            foreach (var s in steps)
+            {
+                n++;
+                var row = new DockPanel { Margin = new Thickness(0, 4, 0, 4) };
+                row.Children.Add(new Border { Width = 22, Height = 22, CornerRadius = new CornerRadius(11), Background = Res("AccentGrad"), VerticalAlignment = VerticalAlignment.Top, Margin = new Thickness(0, 1, 12, 0), Child = new TextBlock { Text = n.ToString(), FontSize = 11, FontWeight = FontWeights.Bold, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center } });
+                var t = new StackPanel();
+                t.Children.Add(new TextBlock { Text = s.Item1, FontSize = 14, FontWeight = FontWeights.SemiBold });
+                t.Children.Add(new TextBlock { Text = s.Item2, Style = St("Sub"), FontSize = 12 });
+                row.Children.Add(t);
+                host.Children.Add(row);
+            }
+
+            var btn = F<Button>("OpenGpuPanel");
+            string pf = Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+            if (nv)
+            {
+                btn.Content = "Abrir Painel de Controle NVIDIA";
+                _gpuPanel = () => Process.Start(Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "explorer.exe"), "shell:AppsFolder\\NVIDIACorp.NVIDIAControlPanel_56jrs9ps46q5g!NVIDIACorp.NVIDIAControlPanel");
+            }
+            else if (amd)
+            {
+                btn.Content = "Abrir AMD Software";
+                _gpuPanel = () => Shell.Open(Path.Combine(pf, @"AMD\CNext\CNext\RadeonSoftware.exe"));
+            }
+            else btn.Visibility = Visibility.Collapsed;
+        }
+
+        private Action _gpuPanel;
+
+        // ================== Defender ==================
+        private async Task SyncDefender()
+        {
+            bool on = Settings.GetBool("defender_excl", false);
+            var desired = on ? _games.Select(g => DefenderExclusions.GameRoot(g.Exe)).Distinct(StringComparer.OrdinalIgnoreCase).ToList() : new List<string>();
+            var current = Settings.Get("defender_paths", "").Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries).ToList();
+            var toAdd = desired.Where(d => !current.Contains(d, StringComparer.OrdinalIgnoreCase)).ToList();
+            var toRemove = current.Where(c => !desired.Contains(c, StringComparer.OrdinalIgnoreCase)).ToList();
+            string err = await Task.Run(() => { DefenderExclusions.Remove(toRemove); return DefenderExclusions.Add(toAdd); });
+            Settings.Set("defender_paths", string.Join("|", err.Length == 0 ? desired : current.Except(toRemove, StringComparer.OrdinalIgnoreCase)));
+            var info = F<TextBlock>("DefExclInfo");
+            if (err.Length > 0) info.Text = "Não foi possível alterar o Defender (" + err + "). Se você usa outro antivírus, configure as exclusões nele.";
+            else if (on) info.Text = desired.Count + " pastas de jogos excluídas da verificação em tempo real.";
+            else info.Text = "Menos travadas ao carregar mapas e texturas. Use só com jogos de lojas confiáveis (Steam, Epic). Vale para os jogos desta lista.";
         }
 
         // ================== Monitor ao vivo ==================
@@ -730,6 +817,7 @@ namespace VoltCore
                 {
                     try { Games.ClearRegistry(game); } catch { }
                     _games.Remove(game); Games.Save(_games); BuildGames();
+                    var _ = SyncDefender();
                 };
                 head.Children.Add(rm);
                 var chg = new Button { Style = St("Ghost"), Content = "Trocar .exe", Padding = new Thickness(10, 4, 10, 4), FontSize = 12 };
@@ -795,6 +883,7 @@ namespace VoltCore
             _watcher.Games = _games;
             BuildGames();
             F<TextBlock>("GameStatus").Text = found.Count + " jogos encontrados, " + added + " novos adicionados com os ajustes recomendados.";
+            if (added > 0) await SyncDefender();
         }
 
         private void AddGameManual()
@@ -808,6 +897,7 @@ namespace VoltCore
             _games.Add(g2);
             SaveGame(g2);
             BuildGames();
+            var _ = SyncDefender();
         }
 
         // ================== Hardware ==================
@@ -841,6 +931,20 @@ namespace VoltCore
         private FrameworkElement CheckRow(CheckItem c)
         {
             var row = new DockPanel { Margin = new Thickness(0, 5, 0, 5) };
+            if (!string.IsNullOrEmpty(c.FixLabel))
+            {
+                var fix = new Button { Style = St("Ghost"), Content = c.FixLabel, Margin = new Thickness(10, 0, 0, 0), Padding = new Thickness(10, 4, 10, 4), VerticalAlignment = VerticalAlignment.Center };
+                DockPanel.SetDock(fix, Dock.Right);
+                fix.Click += async (a, b) =>
+                {
+                    if (c.GoTo != null) { Go(c.GoTo); return; }
+                    fix.IsEnabled = false;
+                    var msg = await Task.Run(c.Fix);
+                    Status(msg);
+                    await UpdateScore();
+                };
+                row.Children.Add(fix);
+            }
             var icon = new TextBlock { Text = c.Ok ? "✓" : "!", Width = 26, FontSize = 16, FontWeight = FontWeights.Bold, Foreground = c.Ok ? Res("Ok") : Res("Warn") };
             row.Children.Add(icon);
             var t = new StackPanel();

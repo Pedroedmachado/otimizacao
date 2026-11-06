@@ -575,6 +575,16 @@
                 <TextBox x:Name="SessCloseList" Width="460" Margin="8,0,0,0"/>
               </StackPanel>
               <TextBlock Style="{StaticResource Sub}" FontSize="11.5" Margin="50,4,0,0" Text="Nomes dos processos separados por vírgula (como no Gerenciador de Tarefas, aba Detalhes, sem .exe). Salve seu trabalho nesses programas antes de jogar."/>
+              <CheckBox x:Name="DefExcl" Style="{StaticResource Toggle}" Content="Excluir as pastas dos jogos da verificação do Windows Defender" Margin="0,14,0,0"/>
+              <TextBlock x:Name="DefExclInfo" Style="{StaticResource Sub}" FontSize="11.5" Margin="50,2,0,0" Text="Menos travadas ao carregar mapas e texturas. Use só com jogos de lojas confiáveis (Steam, Epic). Vale para os jogos desta lista."/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Menos input lag dentro do jogo" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Sub}" FontSize="12" Text="O que mais reduz o atraso entre o clique e a tela é configurado no jogo e no driver de vídeo — nenhum ajuste do Windows substitui isso. Siga nesta ordem:" Margin="0,2,0,10"/>
+              <StackPanel x:Name="LatGuide"/>
+              <Button x:Name="OpenGpuPanel" Style="{StaticResource Ghost}" Content="Abrir painel da placa de vídeo" HorizontalAlignment="Left" Margin="0,10,0,0"/>
             </StackPanel>
           </Border>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,16">

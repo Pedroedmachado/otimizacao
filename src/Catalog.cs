@@ -221,6 +221,19 @@ if (Test-Path $p) { Start-Process $p -ArgumentList '/uninstall' -Wait }",
             ById2(L, "ultimate_plan").CustomApply = PowerPlan.ApplyUltimate;
             ById2(L, "ultimate_plan").CustomUndo = PowerPlan.Restore;
 
+            L.Add(T("perf", "Energia e CPU", "usb_pcie_power", Level.Recomendado, "Sem economia de energia em USB e PCIe",
+                "Desliga a suspensão seletiva de USB e o gerenciamento de energia do PCIe (ASPM) no plano ativo: mouse, teclado, headset e placa de vídeo não 'adormecem' entre um uso e outro, evitando atrasos e desconexões.")
+                .Checked(PowerSettings.IsOff)
+                .Boost());
+            ById2(L, "usb_pcie_power").CustomApply = PowerSettings.Apply;
+            ById2(L, "usb_pcie_power").CustomUndo = PowerSettings.Undo;
+
+            L.Add(T("perf", "Segurança x desempenho", "hvci_off", Level.Avancado, "Desligar Integridade de Memória (HVCI) e VBS",
+                "Desliga a virtualização de segurança do Windows, que custa de 5 a 10% de FPS em vários jogos. Troca de segurança: o PC fica mais exposto a drivers maliciosos. Alguns anti-cheats e o Windows Hello avançado podem exigir que fique ligado.")
+                .Reg(@"HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity", "Enabled", 0)
+                .Reg(@"HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard", "EnableVirtualizationBasedSecurity", 0)
+                .Reboot());
+
             L.Add(T("perf", "Energia e CPU", "power_throttling", Level.Recomendado, "Desligar Power Throttling",
                 "Impede o Windows de reduzir a CPU de programas em segundo plano (ex.: Discord, OBS) para economizar energia.")
                 .Reg(@"HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling", "PowerThrottlingOff", 1)
@@ -298,6 +311,12 @@ if (Test-Path $p) { Start-Process $p -ArgumentList '/uninstall' -Wait }",
                 nagle.Reg(p, "TcpAckFrequency", 1).Reg(p, "TCPNoDelay", 1);
             }
             if (nagle.Ops.Count > 0) { nagle.Boost(); L.Add(nagle); }
+
+            L.Add(T("perf", "Rede", "nic_latency", Level.Recomendado, "Placa de rede em modo baixa latência",
+                "Desliga Energy Efficient Ethernet, Green Ethernet, modos de economia e a moderação de interrupções da placa de rede, e impede o Windows de desligá-la. Menos variação de ping. A internet cai por alguns segundos enquanto a placa reinicia.")
+                .Ps(Nic.ApplyScript(), Nic.UndoScript())
+                .Note("Desfazer restaura os valores originais de cada placa.")
+                .Boost());
 
             L.Add(T("perf", "Rede", "net_throttle", Level.Recomendado, "Sem limitação de rede multimídia",
                 "Remove o limite que o Windows impõe ao tráfego de rede enquanto toca áudio/vídeo.")
