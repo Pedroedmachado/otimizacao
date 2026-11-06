@@ -15,7 +15,7 @@ if not exist dist mkdir dist
   /win32icon:assets\icon.ico ^
   /resource:src\MainWindow.xaml,MainWindow.xaml ^
   /r:"%WPF%\PresentationFramework.dll" /r:"%WPF%\PresentationCore.dll" /r:"%WPF%\WindowsBase.dll" ^
-  /r:System.Xaml.dll /r:System.Management.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Core.dll ^
+  /r:System.Xaml.dll /r:System.Management.dll /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.Core.dll /r:Microsoft.VisualBasic.dll ^
   src\*.cs
 if errorlevel 1 (
   echo.

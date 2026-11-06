@@ -339,6 +339,7 @@
           <RadioButton x:Name="NavHome" Style="{StaticResource Nav}" Tag="PageHome" IsChecked="True">⌂   Painel</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageBoost">⚡   Boost</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageDebloat">🧹   Debloat</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageUninst">🗑   Desinstalar</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PagePerf">🚀   Desempenho</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageMem">▦   Memória</RadioButton>
           <TextBlock Style="{StaticResource Label}" Text="SISTEMA" Margin="22,14,0,6"/>
@@ -502,6 +503,78 @@
           <StackPanel x:Name="DebloatList" Margin="32,6,32,20"/>
         </ScrollViewer>
       </DockPanel>
+
+      <!-- DESINSTALAR -->
+      <Grid x:Name="PageUninst" Visibility="Collapsed">
+        <!-- Lista de programas -->
+        <DockPanel x:Name="UnListMode">
+          <StackPanel DockPanel.Dock="Top" Margin="32,26,32,10">
+            <TextBlock Style="{StaticResource H1}" Text="Desinstalar programas"/>
+            <TextBlock Style="{StaticResource Sub}" Text="Roda o desinstalador do programa e depois procura o que ele deixou para trás: pastas, atalhos, registro, serviços e tarefas. Pastas vão para a Lixeira e o registro ganha backup .reg antes de ser apagado." Margin="0,0,0,14"/>
+            <DockPanel>
+              <Button x:Name="UnRefresh" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Content="↻ Atualizar" Margin="8,0,0,0"/>
+              <ComboBox x:Name="UnSort" DockPanel.Dock="Right" Width="170" SelectedIndex="0" Margin="8,0,0,0">
+                <ComboBoxItem Content="Ordenar por nome"/>
+                <ComboBoxItem Content="Ordenar por tamanho"/>
+                <ComboBoxItem Content="Mais recentes primeiro"/>
+              </ComboBox>
+              <Grid>
+                <TextBox x:Name="UnSearch" Height="32" VerticalContentAlignment="Center" Padding="10,0"/>
+                <TextBlock x:Name="UnSearchHint" Text="Buscar programa ou fabricante…" Foreground="{StaticResource Muted}" Margin="12,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/>
+              </Grid>
+            </DockPanel>
+            <TextBlock x:Name="UnCount" Style="{StaticResource Sub}" FontSize="12" Margin="2,8,0,0"/>
+          </StackPanel>
+          <Border DockPanel.Dock="Bottom" Background="#0A1222" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="32,12">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <CheckBox x:Name="UnRestore" Style="{StaticResource Check}" Content="Ponto de restauração antes" IsChecked="True" Margin="0,0,16,0"/>
+                <Button x:Name="UnForce" Style="{StaticResource Ghost}" Content="Remoção forçada" IsEnabled="False"/>
+                <Button x:Name="UnGo" Style="{StaticResource Primary}" Content="Desinstalar" IsEnabled="False"/>
+              </StackPanel>
+              <StackPanel VerticalAlignment="Center">
+                <TextBlock x:Name="UnSelName" Text="Selecione um programa na lista" FontSize="14" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+                <TextBlock x:Name="UnSelInfo" Style="{StaticResource Sub}" FontSize="11.5" TextTrimming="CharacterEllipsis" TextWrapping="NoWrap"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="UnList" Margin="32,0,32,16"/>
+          </ScrollViewer>
+        </DockPanel>
+
+        <!-- Assistente de desinstalação -->
+        <DockPanel x:Name="UnWizard" Visibility="Collapsed">
+          <StackPanel DockPanel.Dock="Top" Margin="32,26,32,10">
+            <TextBlock x:Name="UnWizTitle" Style="{StaticResource H1}"/>
+            <TextBlock x:Name="UnWizStatus" Style="{StaticResource Sub}" FontSize="13.5" Margin="0,2,0,10"/>
+            <ProgressBar x:Name="UnWizBar" IsIndeterminate="True" Margin="0,0,0,12"/>
+            <StackPanel x:Name="UnWizTools" Orientation="Horizontal" Visibility="Collapsed">
+              <TextBlock Style="{StaticResource Label}" Text="MODO:" VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <ComboBox x:Name="UnLevel" Width="300" SelectedIndex="1">
+                <ComboBoxItem Content="Seguro — só o que é claramente do programa"/>
+                <ComboBoxItem Content="Moderado — inclui dados do usuário (recomendado)"/>
+                <ComboBoxItem Content="Avançado — inclui nomes parecidos"/>
+              </ComboBox>
+              <Button x:Name="UnCheckAll" Style="{StaticResource Ghost}" Content="Marcar todos" Margin="10,0,0,0"/>
+              <Button x:Name="UnCheckNone" Style="{StaticResource Ghost}" Content="Desmarcar todos"/>
+              <TextBlock x:Name="UnSelSummary" Style="{StaticResource Sub}" VerticalAlignment="Center" Margin="6,0,0,0"/>
+            </StackPanel>
+          </StackPanel>
+          <Border DockPanel.Dock="Bottom" Background="#0A1222" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="32,12">
+            <StackPanel Orientation="Horizontal">
+              <Button x:Name="UnSkipWait" Style="{StaticResource Ghost}" Content="O desinstalador já terminou"/>
+              <Button x:Name="UnRescan" Style="{StaticResource Ghost}" Content="Procurar sobras" Visibility="Collapsed"/>
+              <Button x:Name="UnDelete" Style="{StaticResource Primary}" Content="Apagar selecionados" Visibility="Collapsed"/>
+              <Button x:Name="UnBackups" Style="{StaticResource Ghost}" Content="Abrir backups" Margin="10,0,8,0" Visibility="Collapsed"/>
+              <Button x:Name="UnDone" Style="{StaticResource Ghost}" Content="Voltar à lista"/>
+            </StackPanel>
+          </Border>
+          <ScrollViewer VerticalScrollBarVisibility="Auto">
+            <StackPanel x:Name="UnLeftovers" Margin="32,0,32,16"/>
+          </ScrollViewer>
+        </DockPanel>
+      </Grid>
 
       <!-- DESEMPENHO -->
       <DockPanel x:Name="PagePerf" Visibility="Collapsed">

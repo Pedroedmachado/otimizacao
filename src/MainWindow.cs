@@ -74,6 +74,7 @@ namespace VoltCore
             if (Settings.Get("link_since", "").Length == 0) Settings.Set("link_since", DateTime.Now.ToString("dd/MM HH:mm"));
             WireLink();
             WireTools();
+            WireUninstaller();
 
             _games = Games.Load();
             _watcher.Games = _games;
@@ -115,7 +116,7 @@ namespace VoltCore
             }
         }
 
-        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PagePerf", "PageMem", "PageWin", "PageGames", "PageNet", "PageHw", "PageRestore", "PageSettings" };
+        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PageUninst", "PagePerf", "PageMem", "PageWin", "PageGames", "PageNet", "PageHw", "PageRestore", "PageSettings" };
 
         private void ShowPage(string page)
         {
@@ -130,6 +131,7 @@ namespace VoltCore
             if (page == "PageMem") RefreshTopProcesses();
             if (page == "PageHw") RefreshLink();
             if (page == "PageGames") FillBenchGames();
+            if (page == "PageUninst" && _apps == null) { var _ = LoadApps(); }
         }
 
         /// <summary>Modo de desenvolvimento: salva um PNG de cada tela (usado para a documentação).</summary>
@@ -142,7 +144,7 @@ namespace VoltCore
             {
                 Go(p);
                 if (p == "PageNet") ToggleNet();
-                await Task.Delay(p == "PageNet" ? 12000 : p == "PageRestore" || p == "PageWin" || p == "PageHw" ? 5000 : 1200);
+                await Task.Delay(p == "PageNet" ? 12000 : p == "PageRestore" || p == "PageWin" || p == "PageHw" || p == "PageUninst" ? 5000 : 1200);
                 UpdateLayout();
                 var src = PresentationSource.FromVisual(this);
                 double sx = src != null ? src.CompositionTarget.TransformToDevice.M11 : 1;
@@ -523,6 +525,279 @@ namespace VoltCore
             var list = F<TextBox>("SessCloseList");
             list.Text = Settings.Get("close_list", BackgroundCloser.DefaultList);
             list.LostFocus += (a, b) => Settings.Set("close_list", list.Text.Replace("\r", "").Replace("\n", " "));
+        }
+
+        // ================== Desinstalador ==================
+        private List<InstalledApp> _apps;
+        private InstalledApp _selApp;
+        private Border _selRow;
+        private readonly Dictionary<InstalledApp, Image> _appIcons = new Dictionary<InstalledApp, Image>();
+        private List<Leftover> _leftovers = new List<Leftover>();
+        private readonly Dictionary<Leftover, CheckBox> _leftChecks = new Dictionary<Leftover, CheckBox>();
+        private volatile bool _unSkip;
+        private string _lastBackup;
+
+        private void WireUninstaller()
+        {
+            var search = F<TextBox>("UnSearch");
+            search.TextChanged += (a, b) => { F<TextBlock>("UnSearchHint").Visibility = search.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed; BuildAppList(); };
+            F<ComboBox>("UnSort").SelectionChanged += (a, b) => { if (_apps != null) BuildAppList(); };
+            F<Button>("UnRefresh").Click += async (a, b) => await LoadApps();
+            F<Button>("UnGo").Click += async (a, b) => await StartUninstall(false);
+            F<Button>("UnForce").Click += async (a, b) => await StartUninstall(true);
+            F<Button>("UnSkipWait").Click += (a, b) => _unSkip = true;
+            F<Button>("UnRescan").Click += async (a, b) => await ScanLeftovers(false);
+            F<Button>("UnDelete").Click += async (a, b) => await DeleteLeftovers();
+            F<Button>("UnBackups").Click += (a, b) => Shell.Open(_lastBackup ?? Path.Combine(Store.Dir, "uninstall_backups"));
+            F<Button>("UnDone").Click += async (a, b) =>
+            {
+                _unSkip = true;
+                F<FrameworkElement>("UnWizard").Visibility = Visibility.Collapsed;
+                F<FrameworkElement>("UnListMode").Visibility = Visibility.Visible;
+                await LoadApps();
+            };
+            F<ComboBox>("UnLevel").SelectionChanged += (a, b) => BuildLeftovers();
+            F<Button>("UnCheckAll").Click += (a, b) => { foreach (var c in _leftChecks.Values) c.IsChecked = true; };
+            F<Button>("UnCheckNone").Click += (a, b) => { foreach (var c in _leftChecks.Values) c.IsChecked = false; };
+        }
+
+        private async Task LoadApps()
+        {
+            F<TextBlock>("UnCount").Text = "Lendo programas instalados…";
+            _apps = await Task.Run(() => Uninstaller.List());
+            _appIcons.Clear();
+            _selApp = null; _selRow = null;
+            F<Button>("UnGo").IsEnabled = F<Button>("UnForce").IsEnabled = false;
+            F<TextBlock>("UnSelName").Text = "Selecione um programa na lista";
+            F<TextBlock>("UnSelInfo").Text = "";
+            BuildAppList();
+            // ícones em segundo plano
+            var apps = _apps.ToList();
+            var icons = await Task.Run(() =>
+            {
+                var d = new Dictionary<InstalledApp, ImageSource>();
+                foreach (var app in apps)
+                {
+                    try
+                    {
+                        string p = (app.DisplayIcon ?? "").Split(',')[0].Trim().Trim('"');
+                        if (p.Length == 0 || !File.Exists(p)) { var u = Uninstaller.SplitCommand(app.UninstallString ?? "").Item1; p = File.Exists(u) && !u.EndsWith("msiexec.exe", StringComparison.OrdinalIgnoreCase) && !u.EndsWith("RunDll32.EXE", StringComparison.OrdinalIgnoreCase) ? u : null; }
+                        if (p == null) continue;
+                        using (var ic = System.Drawing.Icon.ExtractAssociatedIcon(p))
+                        {
+                            var src = System.Windows.Interop.Imaging.CreateBitmapSourceFromHIcon(ic.Handle, Int32Rect.Empty, System.Windows.Media.Imaging.BitmapSizeOptions.FromWidthAndHeight(32, 32));
+                            src.Freeze();
+                            d[app] = src;
+                        }
+                    }
+                    catch { }
+                }
+                return d;
+            });
+            foreach (var kv in icons) { Image img; if (_appIcons.TryGetValue(kv.Key, out img)) img.Source = kv.Value; }
+        }
+
+        private void BuildAppList()
+        {
+            if (_apps == null) return;
+            var host = F<StackPanel>("UnList");
+            host.Children.Clear();
+            string q = F<TextBox>("UnSearch").Text.Trim();
+            IEnumerable<InstalledApp> list = _apps.Where(a => q.Length == 0 || a.Name.IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0 || (a.Publisher ?? "").IndexOf(q, StringComparison.OrdinalIgnoreCase) >= 0);
+            int sort = F<ComboBox>("UnSort").SelectedIndex;
+            if (sort == 1) list = list.OrderByDescending(a => a.SizeKB);
+            else if (sort == 2) list = list.OrderByDescending(a => { DateTime t; return DateTime.TryParseExact(a.InstallDate, "dd/MM/yyyy", null, System.Globalization.DateTimeStyles.None, out t) ? t : DateTime.MinValue; });
+            var items = list.ToList();
+            F<TextBlock>("UnCount").Text = items.Count + " de " + _apps.Count + " programas · " + Fmt.Bytes(_apps.Sum(a => a.SizeKB) * 1024) + " estimados";
+            foreach (var a in items)
+            {
+                var app = a;
+                var row = new Border { CornerRadius = new CornerRadius(10), Background = Res("Card"), BorderBrush = Res("Line"), BorderThickness = new Thickness(1), Padding = new Thickness(12, 8, 14, 8), Margin = new Thickness(0, 0, 0, 6), Cursor = System.Windows.Input.Cursors.Hand };
+                var g = new Grid();
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(44) });
+                g.ColumnDefinitions.Add(new ColumnDefinition());
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(90) });
+                Image img;
+                if (!_appIcons.TryGetValue(a, out img)) { img = new Image { Width = 28, Height = 28, HorizontalAlignment = HorizontalAlignment.Left }; _appIcons[a] = img; }
+                else if (img.Parent is Panel) ((Panel)img.Parent).Children.Remove(img);
+                g.Children.Add(img);
+                var info = new StackPanel { VerticalAlignment = VerticalAlignment.Center };
+                info.Children.Add(new TextBlock { Text = a.Name, FontSize = 14, FontWeight = FontWeights.SemiBold, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis });
+                info.Children.Add(new TextBlock { Text = string.Join(" · ", new[] { a.Publisher, a.Version }.Where(s => !string.IsNullOrEmpty(s))), Style = St("Sub"), FontSize = 11.5, TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis });
+                Grid.SetColumn(info, 1); g.Children.Add(info);
+                var size = new TextBlock { Text = a.SizeText, Foreground = Res("Accent2"), FontSize = 12.5, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(size, 2); g.Children.Add(size);
+                var date = new TextBlock { Text = a.InstallDate, Foreground = Res("Muted"), FontSize = 12, HorizontalAlignment = HorizontalAlignment.Right, VerticalAlignment = VerticalAlignment.Center };
+                Grid.SetColumn(date, 3); g.Children.Add(date);
+                row.Child = g;
+                row.MouseLeftButtonUp += (s, e) => SelectApp(app, row);
+                row.MouseEnter += (s, e) => { if (row != _selRow) row.Background = Res("CardHover"); };
+                row.MouseLeave += (s, e) => { if (row != _selRow) row.Background = Res("Card"); };
+                if (_selApp == a) { _selRow = row; row.BorderBrush = Res("Accent"); row.Background = Res("CardHover"); }
+                host.Children.Add(row);
+            }
+        }
+
+        private void SelectApp(InstalledApp a, Border row)
+        {
+            if (_selRow != null) { _selRow.BorderBrush = Res("Line"); _selRow.Background = Res("Card"); }
+            _selApp = a; _selRow = row;
+            row.BorderBrush = Res("Accent"); row.Background = Res("CardHover");
+            F<TextBlock>("UnSelName").Text = a.Name;
+            string dir = Uninstaller.InstallDir(a);
+            F<TextBlock>("UnSelInfo").Text = (dir ?? "pasta de instalação desconhecida") + (a.Msi ? " · instalador MSI" : "");
+            F<Button>("UnGo").IsEnabled = F<Button>("UnForce").IsEnabled = true;
+        }
+
+        private void WizardState(string title, string status, bool busy, bool waiting)
+        {
+            F<FrameworkElement>("UnListMode").Visibility = Visibility.Collapsed;
+            F<FrameworkElement>("UnWizard").Visibility = Visibility.Visible;
+            if (title != null) F<TextBlock>("UnWizTitle").Text = title;
+            F<TextBlock>("UnWizStatus").Text = status;
+            F<ProgressBar>("UnWizBar").Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
+            F<Button>("UnSkipWait").Visibility = waiting ? Visibility.Visible : Visibility.Collapsed;
+        }
+
+        private async Task StartUninstall(bool forced)
+        {
+            var a = _selApp;
+            if (a == null) return;
+            string msg = forced
+                ? "Remoção forçada de \"" + a.Name + "\":\n\nO desinstalador do programa NÃO será executado. O VoltCore só vai procurar e remover os restos (pastas, registro, atalhos).\n\nUse quando o desinstalador está quebrado ou o programa não aparece mais funcionando. Continuar?"
+                : "Desinstalar \"" + a.Name + "\"?\n\n1. O desinstalador do próprio programa vai abrir — siga as instruções dele.\n2. Depois o VoltCore procura as sobras e mostra tudo antes de apagar.";
+            if (MessageBox.Show(this, msg, "Desinstalar", MessageBoxButton.YesNo, forced ? MessageBoxImage.Warning : MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+            _leftovers.Clear(); _leftChecks.Clear(); F<StackPanel>("UnLeftovers").Children.Clear();
+            F<FrameworkElement>("UnWizTools").Visibility = Visibility.Collapsed;
+            F<Button>("UnDelete").Visibility = F<Button>("UnRescan").Visibility = F<Button>("UnBackups").Visibility = Visibility.Collapsed;
+            string title = (forced ? "Remoção forçada: " : "Desinstalando: ") + a.Name;
+
+            if (F<CheckBox>("UnRestore").IsChecked == true)
+            {
+                WizardState(title, "Criando ponto de restauração…", true, false);
+                var r = await Task.Run(() => RestorePoints.Create("VoltCore - antes de remover " + a.Name));
+                if (!r.StartsWith("OK") && MessageBox.Show(this, "Não foi possível criar o ponto de restauração:\n" + r + "\n\nContinuar mesmo assim?", "Ponto de restauração", MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+                { F<FrameworkElement>("UnWizard").Visibility = Visibility.Collapsed; F<FrameworkElement>("UnListMode").Visibility = Visibility.Visible; return; }
+            }
+
+            if (!forced)
+            {
+                _unSkip = false;
+                WizardState(title, "O desinstalador de " + a.Name + " está aberto — siga as instruções na janela dele. Quando terminar, o VoltCore continua sozinho.", true, true);
+                var err = await Task.Run(() => Uninstaller.RunUninstaller(a, () => _unSkip));
+                if (err.Length > 0)
+                {
+                    WizardState(title, err, false, false);
+                    F<Button>("UnRescan").Visibility = Visibility.Visible;
+                    return;
+                }
+            }
+            await ScanLeftovers(forced);
+        }
+
+        private async Task ScanLeftovers(bool forced)
+        {
+            var a = _selApp;
+            if (a == null) return;
+            string title = (forced ? "Remoção forçada: " : "Sobras de: ") + a.Name;
+            if (!forced && Uninstaller.StillInstalled(a))
+            {
+                var res = MessageBox.Show(this, "\"" + a.Name + "\" ainda aparece como instalado. O desinstalador pode ter sido cancelado ou ainda não terminou (por exemplo, a Steam pede confirmação na janela dela).\n\nSim = procurar sobras mesmo assim (remoção forçada)\nNão = esperar — conclua a desinstalação e clique em \"Procurar sobras\"", "Programa ainda instalado", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+                if (res != MessageBoxResult.Yes)
+                {
+                    WizardState(title, "Aguardando você concluir a desinstalação. Depois clique em \"Procurar sobras\".", false, false);
+                    F<Button>("UnRescan").Visibility = Visibility.Visible;
+                    return;
+                }
+            }
+            WizardState(title, "Procurando sobras em pastas, registro, atalhos, serviços e tarefas…", true, false);
+            F<Button>("UnRescan").Visibility = Visibility.Collapsed;
+            _leftovers = await Task.Run(() => Uninstaller.Scan(a));
+            if (_leftovers.Count == 0)
+            {
+                WizardState(title, "✓ Nenhuma sobra encontrada — o programa foi removido por completo.", false, false);
+                return;
+            }
+            WizardState(title, _leftovers.Count + " sobras encontradas. Revise antes de apagar: itens Seguros já vêm marcados; Moderados (dados do usuário) e Avançados você decide.", false, false);
+            F<FrameworkElement>("UnWizTools").Visibility = Visibility.Visible;
+            F<Button>("UnDelete").Visibility = Visibility.Visible;
+            BuildLeftovers();
+        }
+
+        private static readonly string[] KindNames = { "Pastas", "Atalhos e arquivos", "Chaves do registro", "Valores do registro", "Serviços", "Tarefas agendadas" };
+
+        private void BuildLeftovers()
+        {
+            var host = F<StackPanel>("UnLeftovers");
+            if (host == null) return;
+            var prevChecked = _leftChecks.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+            bool first = _leftChecks.Count == 0;
+            host.Children.Clear();
+            _leftChecks.Clear();
+            int lvl = Math.Max(0, F<ComboBox>("UnLevel").SelectedIndex);
+            string[] lvlNames = { "Seguro", "Moderado", "Avançado" };
+            string[] lvlBg = { "#123A2A", "#3A2A12", "#3A1414" };
+            Brush[] lvlFg = { Res("Ok"), Res("Warn"), Res("Bad") };
+            foreach (var grp in _leftovers.Where(l => (int)l.Level <= lvl).GroupBy(l => l.Kind))
+            {
+                host.Children.Add(new TextBlock { Text = KindNames[(int)grp.Key].ToUpperInvariant() + " (" + grp.Count() + ")", Style = St("Label"), Margin = new Thickness(2, 12, 0, 6) });
+                foreach (var l in grp)
+                {
+                    var item = l;
+                    var card = new Border { Style = St("CardBorder"), Padding = new Thickness(14, 8, 14, 8), Margin = new Thickness(0, 0, 0, 6) };
+                    var dp = new DockPanel();
+                    var right = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+                    if (l.Bytes > 0) right.Children.Add(new TextBlock { Text = Fmt.Bytes(l.Bytes), Foreground = Res("Accent2"), FontSize = 12.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 10, 0) });
+                    right.Children.Add(Pill(lvlNames[(int)l.Level], lvlFg[(int)l.Level], lvlBg[(int)l.Level]));
+                    DockPanel.SetDock(right, Dock.Right);
+                    dp.Children.Add(right);
+                    var txt = new StackPanel();
+                    txt.Children.Add(new TextBlock { Text = l.Path + (l.ValueName != null ? "  →  " + l.ValueName : ""), FontSize = 13, TextWrapping = TextWrapping.Wrap });
+                    txt.Children.Add(new TextBlock { Text = l.Reason, Style = St("Sub"), FontSize = 11.5 });
+                    var cb = new CheckBox { Style = St("Check"), Content = txt, IsChecked = first ? l.Level == Confidence.Seguro : prevChecked.Contains(l) };
+                    cb.Checked += (s, e) => UpdateLeftSummary();
+                    cb.Unchecked += (s, e) => UpdateLeftSummary();
+                    dp.Children.Add(cb);
+                    card.Child = dp;
+                    host.Children.Add(card);
+                    _leftChecks[item] = cb;
+                }
+            }
+            UpdateLeftSummary();
+        }
+
+        private void UpdateLeftSummary()
+        {
+            var sel = _leftChecks.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+            F<TextBlock>("UnSelSummary").Text = sel.Count + " selecionados · " + Fmt.Bytes(sel.Sum(s => s.Bytes));
+        }
+
+        private async Task DeleteLeftovers()
+        {
+            var a = _selApp;
+            var sel = _leftChecks.Where(kv => kv.Value.IsChecked == true).Select(kv => kv.Key).ToList();
+            if (a == null || sel.Count == 0) { F<TextBlock>("UnWizStatus").Text = "Nada selecionado."; return; }
+            int user = sel.Count(s => s.Level != Confidence.Seguro);
+            string msg = "Apagar " + sel.Count + " itens (" + Fmt.Bytes(sel.Sum(s => s.Bytes)) + ")?\n\n• Pastas e atalhos vão para a Lixeira.\n• O registro é exportado em .reg antes de ser apagado (dá para restaurar com dois cliques)." +
+                         (user > 0 ? "\n\n⚠ " + user + " itens não são 'Seguros' e podem conter dados pessoais (perfis, saves, configurações)." : "");
+            if (MessageBox.Show(this, msg, "Remover sobras", MessageBoxButton.YesNo, user > 0 ? MessageBoxImage.Warning : MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+            WizardState(null, "Removendo sobras…", true, false);
+            F<Button>("UnDelete").IsEnabled = false;
+            var errors = new List<string>();
+            string backup = Uninstaller.BackupDir(a);
+            var r = await Task.Run(() => Uninstaller.Remove(a, sel, backup, errors));
+            _lastBackup = backup;
+            F<Button>("UnDelete").IsEnabled = true;
+            F<Button>("UnDelete").Visibility = Visibility.Collapsed;
+            F<FrameworkElement>("UnWizTools").Visibility = Visibility.Collapsed;
+            F<Button>("UnBackups").Visibility = Visibility.Visible;
+            F<StackPanel>("UnLeftovers").Children.Clear();
+            WizardState(null, "✓ " + r.Item1 + " sobras removidas" + (r.Item3 > 0 ? " · " + Fmt.Bytes(r.Item3) + " enviados para a Lixeira" : "") + "." +
+                (r.Item2 > 0 ? "\n⚠ " + r.Item2 + " não puderam ser removidas (em uso ou sem permissão):\n• " + string.Join("\n• ", errors.Take(8)) : "") +
+                "\nBackup do registro em: " + backup, false, false);
+            Status("Desinstalação concluída: " + a.Name);
         }
 
         // ================== Ferramentas: ajustes desfeitos, ping, FPS, mouse ==================
