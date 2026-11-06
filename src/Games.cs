@@ -225,11 +225,7 @@ namespace VoltCore
                             p.PriorityClass = ProcessPriorityClass.High;
                             done.Add("prioridade alta");
                         }
-                        if (g.PurgeOnStart)
-                        {
-                            MemoryCleaner.PurgeStandby();
-                            done.Add("memória limpa");
-                        }
+                        if (g.PurgeOnStart && MemoryCleaner.PurgeStandby()) done.Add("memória limpa");
                         if (Message != null) Message(g.Name + " detectado" + (done.Count > 0 ? ": " + string.Join(", ", done) : ""));
                     }
                     catch (Exception ex)

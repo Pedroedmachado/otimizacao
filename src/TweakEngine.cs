@@ -168,7 +168,7 @@ namespace VoltCore
 
         public static HashSet<string> Applied()
         {
-            return new HashSet<string>(Store.ReadLines(StateFile).Where(l => l.Length > 0));
+            lock (Lock) return new HashSet<string>(Store.ReadLines(StateFile).Where(l => l.Length > 0));
         }
 
         private static void MarkApplied(string id, bool on)
@@ -203,6 +203,24 @@ namespace VoltCore
         {
             var rx = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(pattern).Replace("\\*", ".*") + "$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
             return InstalledAppx.Any(n => rx.IsMatch(n));
+        }
+
+        /// <summary>
+        /// Ajustes que o usuário aplicou pelo app mas que não estão mais ativos —
+        /// normalmente desfeitos por uma atualização do Windows.
+        /// </summary>
+        public static List<Tweak> Drifted()
+        {
+            var applied = Applied();
+            if (applied.Any(id => id.StartsWith("app_") || id == "copilot")) RefreshAppx();
+            return Catalog.All.Where(t => applied.Contains(t.Id) && (t.Check != null || t.Ops.Count > 0) && !IsApplied(t)).ToList();
+        }
+
+        /// <summary>Para de vigiar um ajuste (o usuário escolheu manter como o Windows deixou).</summary>
+        public static void Forget(string id)
+        {
+            MarkApplied(id, false);
+            Store.Log("IGNORADO  " + id);
         }
 
         public static bool IsApplied(Tweak t)
@@ -253,8 +271,11 @@ namespace VoltCore
             {
                 try { t.CustomApply(); } catch (Exception ex) { errors.AppendLine(ex.Message); }
             }
-            MarkApplied(t.Id, true);
-            Store.Log("APLICADO  " + t.Id + (errors.Length > 0 ? "  (com avisos)" : ""));
+            // Ajustes com verificação própria (apps, Edge, plano de energia…) só contam se realmente tiveram efeito.
+            bool ok = t.Check == null || IsApplied(t);
+            MarkApplied(t.Id, ok);
+            if (!ok) errors.AppendLine("não teve efeito");
+            Store.Log((ok ? "APLICADO  " : "SEM EFEITO  ") + t.Id + (errors.Length > 0 ? "  (com avisos)" : ""));
             return errors.ToString();
         }
 

@@ -73,6 +73,7 @@ namespace VoltCore
             WireSettings();
             if (Settings.Get("link_since", "").Length == 0) Settings.Set("link_since", DateTime.Now.ToString("dd/MM HH:mm"));
             WireLink();
+            WireTools();
 
             _games = Games.Load();
             _watcher.Games = _games;
@@ -114,7 +115,7 @@ namespace VoltCore
             }
         }
 
-        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PagePerf", "PageMem", "PageWin", "PageGames", "PageHw", "PageRestore", "PageSettings" };
+        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PagePerf", "PageMem", "PageWin", "PageGames", "PageNet", "PageHw", "PageRestore", "PageSettings" };
 
         private void ShowPage(string page)
         {
@@ -128,6 +129,7 @@ namespace VoltCore
             if (page == "PageRestore") LoadRestorePoints();
             if (page == "PageMem") RefreshTopProcesses();
             if (page == "PageHw") RefreshLink();
+            if (page == "PageGames") FillBenchGames();
         }
 
         /// <summary>Modo de desenvolvimento: salva um PNG de cada tela (usado para a documentação).</summary>
@@ -139,7 +141,8 @@ namespace VoltCore
             foreach (var p in Pages)
             {
                 Go(p);
-                await Task.Delay(p == "PageRestore" || p == "PageWin" || p == "PageHw" ? 5000 : 1200);
+                if (p == "PageNet") ToggleNet();
+                await Task.Delay(p == "PageNet" ? 12000 : p == "PageRestore" || p == "PageWin" || p == "PageHw" ? 5000 : 1200);
                 UpdateLayout();
                 var src = PresentationSource.FromVisual(this);
                 double sx = src != null ? src.CompositionTarget.TransformToDevice.M11 : 1;
@@ -172,6 +175,7 @@ namespace VoltCore
             auto.Checked += async (a, b) => { var err = await Task.Run(() => AutoStart.Set(true)); F<TextBlock>("SetStatus").Text = err.Length == 0 ? "O VoltCore vai abrir na bandeja quando você entrar no Windows." : err; };
             auto.Unchecked += async (a, b) => { await Task.Run(() => AutoStart.Set(false)); F<TextBlock>("SetStatus").Text = "Início automático desligado."; };
             F<CheckBox>("WeeklyToggle").IsChecked = await Task.Run(() => Maintenance.IsScheduled());
+            await CheckDrift();
             F<CheckBox>("WeeklyToggle").Checked += async (a, b) => { var ok = await Task.Run(() => Maintenance.Schedule(true)); Status(ok ? "Revisão semanal agendada para domingo, 12:00." : "Não foi possível agendar a revisão semanal."); };
             F<CheckBox>("WeeklyToggle").Unchecked += async (a, b) => { await Task.Run(() => Maintenance.Schedule(false)); Status("Revisão semanal removida."); };
             Status("Pronto.");
@@ -356,7 +360,10 @@ namespace VoltCore
             }
             await RefreshTweakStates();
             btn.IsEnabled = true;
-            status.Text = (undo ? "Desfeito: " : "Aplicado: ") + sel.Count + " itens." + (warnings.Count > 0 ? " Alguns avisos foram salvos no registro de atividades." : "");
+            var noEffect = warnings.Where(w => w.Contains("não teve efeito")).Select(w => w.Substring(0, w.IndexOf(':'))).ToList();
+            status.Text = (undo ? "Desfeito: " : "Aplicado: ") + (sel.Count - noEffect.Count) + " itens." +
+                (noEffect.Count > 0 ? " Sem efeito: " + string.Join(", ", noEffect) + (noEffect.Any(n => n.Contains("Edge")) ? " (a Microsoft bloqueia a remoção do Edge em algumas regiões)." : ".") : "") +
+                (warnings.Count > noEffect.Count ? " Alguns avisos foram salvos no registro de atividades." : "");
             foreach (var w in warnings) Store.Log("AVISO " + w);
             Status(status.Text);
             if (reboot) F<TextBlock>("RebootHint").Visibility = Visibility.Visible;
@@ -516,6 +523,323 @@ namespace VoltCore
             var list = F<TextBox>("SessCloseList");
             list.Text = Settings.Get("close_list", BackgroundCloser.DefaultList);
             list.LostFocus += (a, b) => Settings.Set("close_list", list.Text.Replace("\r", "").Replace("\n", " "));
+        }
+
+        // ================== Ferramentas: ajustes desfeitos, ping, FPS, mouse ==================
+        private readonly MouseRateTest _mouse = new MouseRateTest();
+        private DateTime _mouseStop;
+        private List<Tweak> _drifted = new List<Tweak>();
+
+        private void WireTools()
+        {
+            // Ajustes desfeitos pelo Windows
+            F<Button>("DriftReapply").Click += async (a, b) =>
+            {
+                var list = _drifted.ToList();
+                F<Button>("DriftReapply").IsEnabled = false;
+                foreach (var t in list) { var tw = t; Status("Reaplicando: " + t.Title + "…"); await Task.Run(() => TweakEngine.Apply(tw)); }
+                F<Button>("DriftReapply").IsEnabled = true;
+                await RefreshTweakStates();
+                await CheckDrift();
+                await UpdateScore();
+                var failed = list.Where(t => _badges.ContainsKey(t) && _badges[t].Text != "✓ Aplicado").Select(t => t.Title).ToList();
+                Status(failed.Count == 0 ? list.Count + " ajustes reaplicados." : "Reaplicados " + (list.Count - failed.Count) + ". Sem efeito: " + string.Join(", ", failed) + ".");
+            };
+            F<Button>("DriftIgnore").Click += (a, b) =>
+            {
+                foreach (var t in _drifted) TweakEngine.Forget(t.Id);
+                _drifted.Clear();
+                F<Border>("DriftBanner").Visibility = Visibility.Collapsed;
+                Status("Ok — esses ajustes não serão mais vigiados.");
+            };
+
+            // Ping
+            F<Button>("NetGo").Click += (a, b) => ToggleNet();
+            F<Button>("NetReset").Click += (a, b) => { _netTargets = null; F<StackPanel>("NetTargets").Children.Clear(); F<TextBlock>("NetDiag").Text = "Zerado."; };
+            F<TextBox>("NetCustom").Text = Settings.Get("net_custom", "");
+
+            // Teste de FPS
+            F<Button>("BenchRefresh").Click += (a, b) => FillBenchGames();
+            F<Button>("BenchGo").Click += async (a, b) => await RunBench();
+            F<Button>("BenchClear").Click += (a, b) =>
+            {
+                if (MessageBox.Show(this, "Apagar todos os resultados de teste de FPS?", "Teste de FPS", MessageBoxButton.YesNo) == MessageBoxResult.Yes) { Benchmark.Clear(); BuildBenchList(); }
+            };
+            BuildBenchList();
+
+            // Mouse
+            SourceInitialized += (a, b) =>
+            {
+                var src = System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle);
+                if (src != null) src.AddHook((IntPtr hwnd, int msg, IntPtr w, IntPtr l, ref bool handled) => { _mouse.OnMessage(msg); return IntPtr.Zero; });
+            };
+            F<Button>("MouseGo").Click += (a, b) =>
+            {
+                if (_mouse.Running) return;
+                if (!_mouse.Start(new System.Windows.Interop.WindowInteropHelper(this).Handle)) { F<TextBlock>("MouseInfo").Text = "Não foi possível registrar o mouse."; return; }
+                _mouseStop = DateTime.Now.AddSeconds(6);
+                F<Button>("MouseGo").IsEnabled = false;
+                F<TextBlock>("MouseInfo").Text = "Mexa o mouse rápido, em círculos…";
+                var t = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+                t.Tick += (s, e) => { UpdateMouse(); if (!_mouse.Running) t.Stop(); };
+                t.Start();
+            };
+        }
+
+        private void UpdateMouse()
+        {
+            _mouse.Roll();
+            F<TextBlock>("MouseHz").Text = _mouse.CurrentHz + " Hz";
+            if (DateTime.Now < _mouseStop) return;
+            _mouse.Stop();
+            F<Button>("MouseGo").IsEnabled = true;
+            int typ = _mouse.TypicalHz;
+            if (typ == 0)
+            {
+                F<TextBlock>("MouseHz").Text = "— Hz";
+                F<TextBlock>("MouseInfo").Text = "Movimento insuficiente. Clique em Testar e mexa o mouse sem parar por 5 segundos.";
+                return;
+            }
+            int std = MouseRateTest.Nearest(typ);
+            F<TextBlock>("MouseHz").Text = "≈ " + std + " Hz";
+            F<TextBlock>("MouseInfo").Text = "Típico " + typ + " Hz · pico " + _mouse.PeakHz + " Hz. " +
+                (std < 1000 ? "Para jogos, 1000 Hz é o recomendado — veja se o software do seu mouse permite aumentar." : "Ótimo para jogos.");
+            Store.Log("MOUSE polling ≈ " + std + " Hz (típico " + typ + ")");
+        }
+
+        private async Task CheckDrift()
+        {
+            var d = await Task.Run(() => TweakEngine.Drifted());
+            _drifted = d;
+            var banner = F<Border>("DriftBanner");
+            if (d.Count == 0) { banner.Visibility = Visibility.Collapsed; return; }
+            banner.Visibility = Visibility.Visible;
+            F<TextBlock>("DriftTitle").Text = "⚠ " + d.Count + (d.Count == 1 ? " ajuste foi desfeito" : " ajustes foram desfeitos") + " ou não teve efeito (o Windows Update costuma desfazer alguns ajustes)";
+            F<TextBlock>("DriftList").Text = string.Join(" · ", d.Select(t => t.Title));
+            foreach (var t in d) SetBadge(t, false);
+            if (!IsVisible && _tray != null)
+                _tray.ShowBalloonTip(5000, "VoltCore: ajustes desfeitos", d.Count + " ajustes foram desfeitos pelo Windows. Abra o VoltCore para reaplicar.", WinForms.ToolTipIcon.Warning);
+        }
+
+        // ---------- Ping ----------
+        private List<PingTarget> _netTargets;
+        private DispatcherTimer _netTimer;
+        private bool _netBusy;
+        private readonly Dictionary<PingTarget, Tuple<TextBlock, TextBlock, System.Windows.Shapes.Polyline, Canvas>> _netUi = new Dictionary<PingTarget, Tuple<TextBlock, TextBlock, System.Windows.Shapes.Polyline, Canvas>>();
+
+        private void ToggleNet()
+        {
+            var btn = F<Button>("NetGo");
+            if (_netTimer != null && _netTimer.IsEnabled)
+            {
+                _netTimer.Stop();
+                btn.Content = "▶  Continuar medição";
+                return;
+            }
+            if (_netTargets == null)
+            {
+                string custom = F<TextBox>("NetCustom").Text.Trim();
+                Settings.Set("net_custom", custom);
+                _netTargets = new List<PingTarget>();
+                var gw = PingMonitor.Gateway();
+                if (gw != null) _netTargets.Add(new PingTarget { Name = "Roteador", Host = gw });
+                _netTargets.Add(new PingTarget { Name = "Internet (Cloudflare)", Host = "1.1.1.1" });
+                _netTargets.Add(new PingTarget { Name = "Internet (Google)", Host = "8.8.8.8" });
+                if (custom.Length > 0) _netTargets.Add(new PingTarget { Name = "Servidor do jogo", Host = custom });
+                BuildNetUi();
+            }
+            if (_netTimer == null)
+            {
+                _netTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                _netTimer.Tick += async (a, b) => await NetTick();
+            }
+            _netTimer.Start();
+            btn.Content = "❚❚  Pausar medição";
+        }
+
+        private void BuildNetUi()
+        {
+            var host = F<StackPanel>("NetTargets");
+            host.Children.Clear();
+            _netUi.Clear();
+            foreach (var t in _netTargets)
+            {
+                var card = new Border { Style = St("CardBorder"), Padding = new Thickness(18, 14, 18, 14) };
+                var g = new Grid();
+                g.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(250) });
+                g.ColumnDefinitions.Add(new ColumnDefinition());
+                var left = new StackPanel();
+                left.Children.Add(new TextBlock { Text = t.Name.ToUpperInvariant() + "  ·  " + t.Host, Style = St("Label") });
+                var big = new TextBlock { Text = "—", FontSize = 26, FontWeight = FontWeights.SemiBold, Margin = new Thickness(0, 4, 0, 0) };
+                var stats = new TextBlock { Style = St("Sub"), FontSize = 12 };
+                left.Children.Add(big); left.Children.Add(stats);
+                g.Children.Add(left);
+                var canvas = new Canvas { Height = 60, ClipToBounds = true, Background = new SolidColorBrush(Color.FromRgb(0x0B, 0x12, 0x22)) };
+                var line = new System.Windows.Shapes.Polyline { Stroke = Res("Accent2"), StrokeThickness = 1.6 };
+                canvas.Children.Add(line);
+                Grid.SetColumn(canvas, 1);
+                g.Children.Add(canvas);
+                card.Child = g;
+                host.Children.Add(card);
+                _netUi[t] = Tuple.Create(big, stats, line, canvas);
+            }
+        }
+
+        private async Task NetTick()
+        {
+            if (_netBusy || _netTargets == null) return;
+            _netBusy = true;
+            try
+            {
+                var results = await Task.WhenAll(_netTargets.Select(t => PingMonitor.PingOnce(t.Host)));
+                for (int i = 0; i < _netTargets.Count; i++)
+                {
+                    var t = _netTargets[i];
+                    t.Samples.Add(results[i]);
+                    var ui = _netUi[t];
+                    ui.Item1.Text = results[i].HasValue ? (results[i].Value < 1 ? "<1 ms" : results[i].Value.ToString("0") + " ms") : "perdido";
+                    ui.Item1.Foreground = results[i].HasValue ? Res("Text") : Res("Bad");
+                    ui.Item2.Text = "média " + t.Avg.ToString("0.0") + " ms · oscilação " + t.Jitter.ToString("0.0") + " ms · máx " + t.Max.ToString("0") + " ms · perda " + t.LossPct.ToString("0.#") + "% (" + t.Lost + "/" + t.Sent + ")";
+                    DrawPing(t, ui.Item3, ui.Item4);
+                }
+                var router = _netTargets.FirstOrDefault(t => t.Name == "Roteador");
+                var internet = _netTargets.FirstOrDefault(t => t.Host == "1.1.1.1");
+                var link = LinkWatcher.Current();
+                bool wired = link.Any(l => l.Item2 != "desconectado");
+                F<TextBlock>("NetLink").Text = wired ? "Conexão por cabo: " + string.Join(", ", link.Where(l => l.Item2 != "desconectado").Select(l => l.Item2)) : "Sem cabo de rede conectado (provavelmente Wi-Fi).";
+                F<TextBlock>("NetDiag").Text = PingMonitor.Diagnose(router, internet, wired);
+            }
+            finally { _netBusy = false; }
+        }
+
+        private void DrawPing(PingTarget t, System.Windows.Shapes.Polyline line, Canvas c)
+        {
+            double w = c.ActualWidth, h = c.ActualHeight;
+            if (w <= 0) return;
+            var last = t.Samples.Skip(Math.Max(0, t.Samples.Count - 120)).ToList();
+            double max = Math.Max(10, last.Where(s => s.HasValue).Select(s => s.Value).DefaultIfEmpty(10).Max() * 1.2);
+            var pts = new PointCollection();
+            double step = w / 119.0;
+            for (int i = 0; i < last.Count; i++)
+            {
+                double v = last[i].HasValue ? last[i].Value : max;
+                pts.Add(new Point(i * step, h - v / max * (h - 4) - 2));
+            }
+            line.Points = pts;
+            // marca pacotes perdidos
+            foreach (var old in c.Children.OfType<System.Windows.Shapes.Rectangle>().ToList()) c.Children.Remove(old);
+            for (int i = 0; i < last.Count; i++)
+                if (!last[i].HasValue)
+                {
+                    var r = new System.Windows.Shapes.Rectangle { Width = Math.Max(2, step), Height = h, Fill = new SolidColorBrush(Color.FromArgb(0x70, 0xEF, 0x44, 0x44)) };
+                    Canvas.SetLeft(r, i * step);
+                    c.Children.Add(r);
+                }
+        }
+
+        // ---------- Teste de FPS ----------
+        private void FillBenchGames()
+        {
+            var cb = F<ComboBox>("BenchGame");
+            var prev = cb.SelectedItem as ComboBoxItem;
+            string prevExe = prev != null ? (string)prev.Tag : null;
+            cb.Items.Clear();
+            foreach (var g in _games.OrderBy(x => x.Name))
+                cb.Items.Add(new ComboBoxItem { Content = g.Name, Tag = g.ExeName });
+            var listed = new HashSet<string>(_games.Select(g => g.ExeName), StringComparer.OrdinalIgnoreCase);
+            foreach (var p in Process.GetProcesses())
+            {
+                try
+                {
+                    if (p.MainWindowHandle == IntPtr.Zero || string.IsNullOrEmpty(p.MainWindowTitle) || p.Id == Process.GetCurrentProcess().Id) continue;
+                    string exe = p.ProcessName + ".exe";
+                    if (listed.Contains(exe) || exe.Equals("explorer.exe", StringComparison.OrdinalIgnoreCase)) continue;
+                    listed.Add(exe);
+                    cb.Items.Add(new ComboBoxItem { Content = p.MainWindowTitle + "  (" + exe + ", aberto)", Tag = exe });
+                }
+                catch { }
+                finally { p.Dispose(); }
+            }
+            foreach (ComboBoxItem it in cb.Items) if ((string)it.Tag == prevExe) cb.SelectedItem = it;
+            if (cb.SelectedIndex < 0 && cb.Items.Count > 0) cb.SelectedIndex = 0;
+        }
+
+        private async Task RunBench()
+        {
+            var item = F<ComboBox>("BenchGame").SelectedItem as ComboBoxItem;
+            var st = F<TextBlock>("BenchStatus");
+            if (item == null) { st.Text = "Escolha um jogo (abra o jogo e clique em ↻ para listar)."; return; }
+            if (!Benchmark.Installed)
+            {
+                if (MessageBox.Show(this, "O teste de FPS usa o PresentMon " + Benchmark.Version + ", ferramenta oficial, gratuita e de código aberto da Intel (cerca de 1 MB).\n\nBaixar agora do GitHub oficial (GameTechDev/PresentMon)? O arquivo é conferido pelo hash SHA-256 publicado antes de ser usado.", "Baixar PresentMon", MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+                st.Text = "Baixando PresentMon…";
+                var err = await Task.Run(() => Benchmark.Download());
+                if (err.Length > 0) { st.Text = err; return; }
+            }
+            string exe = (string)item.Tag;
+            string game = item.Content.ToString();
+            int i = game.IndexOf("  (");
+            if (i > 0) game = game.Substring(0, i);
+            int[] durs = { 30, 60, 120 };
+            int secs = durs[Math.Max(0, F<ComboBox>("BenchDur").SelectedIndex)];
+            string label = F<TextBox>("BenchLabel").Text.Trim();
+            if (label.Length == 0) label = DateTime.Now.ToString("dd/MM HH:mm");
+            var btn = F<Button>("BenchGo");
+            btn.IsEnabled = false;
+            try
+            {
+                for (int s = 10; s > 0; s--) { st.Text = "Volte para o jogo! O teste começa em " + s + " s…"; Status(st.Text); await Task.Delay(1000); }
+                if (Process.GetProcessesByName(Path.GetFileNameWithoutExtension(exe)).Length == 0) { st.Text = exe + " não está aberto. Abra o jogo e tente de novo."; return; }
+                var t0 = DateTime.Now;
+                var timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
+                timer.Tick += (a, b) => { st.Text = "Gravando " + game + "… " + Math.Min(secs, (int)(DateTime.Now - t0).TotalSeconds) + "/" + secs + " s"; };
+                timer.Start();
+                string error = null;
+                var r = await Task.Run(() => Benchmark.Run(exe, game, label, secs, out error));
+                timer.Stop();
+                if (r == null) { st.Text = error; Status(error); return; }
+                st.Text = "Pronto: " + r.AvgFps.ToString("0") + " FPS médio · 1% low " + r.Low1.ToString("0") + " · 0,1% low " + r.Low01.ToString("0") + ". Resultado salvo na tabela abaixo.";
+                Status(st.Text);
+                if (label.StartsWith("Antes", StringComparison.OrdinalIgnoreCase)) F<TextBox>("BenchLabel").Text = "Depois do Boost";
+                BuildBenchList();
+                try { _tray.ShowBalloonTip(4000, "Teste de FPS concluído", game + ": " + r.AvgFps.ToString("0") + " FPS médio, 1% low " + r.Low1.ToString("0"), WinForms.ToolTipIcon.Info); } catch { }
+            }
+            finally { btn.IsEnabled = true; }
+        }
+
+        private void BuildBenchList()
+        {
+            var host = F<StackPanel>("BenchList");
+            host.Children.Clear();
+            var all = Benchmark.History();
+            if (all.Count == 0) return;
+            var head = new Grid { Margin = new Thickness(0, 6, 0, 4) };
+            string[] cols = { "QUANDO", "JOGO / TESTE", "FPS MÉDIO", "1% LOW", "0,1% LOW", "FRAMETIME" };
+            double[] widths = { 110, 0, 110, 100, 100, 90 };
+            for (int i = 0; i < cols.Length; i++) head.ColumnDefinitions.Add(new ColumnDefinition { Width = widths[i] == 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(widths[i]) });
+            for (int i = 0; i < cols.Length; i++) { var tb = new TextBlock { Text = cols[i], Style = St("Label") }; Grid.SetColumn(tb, i); head.Children.Add(tb); }
+            host.Children.Add(head);
+            foreach (var r in Enumerable.Reverse(all).Take(15))
+            {
+                var prev = all.Where(x => x.Game == r.Game && x.Time < r.Time).OrderByDescending(x => x.Time).FirstOrDefault();
+                var row = new Grid { Margin = new Thickness(0, 3, 0, 3) };
+                for (int i = 0; i < cols.Length; i++) row.ColumnDefinitions.Add(new ColumnDefinition { Width = widths[i] == 0 ? new GridLength(1, GridUnitType.Star) : new GridLength(widths[i]) });
+                Action<int, string, Brush> add = (col, text, fg) => { var tb = new TextBlock { Text = text, FontSize = 13, Foreground = fg ?? Res("Text"), TextWrapping = TextWrapping.NoWrap, TextTrimming = TextTrimming.CharacterEllipsis }; Grid.SetColumn(tb, col); row.Children.Add(tb); };
+                add(0, r.Time.ToString("dd/MM HH:mm"), Res("Muted"));
+                add(1, r.Game + " — " + r.Label, null);
+                add(2, r.AvgFps.ToString("0") + Delta(r.AvgFps, prev == null ? 0 : prev.AvgFps), null);
+                add(3, r.Low1.ToString("0") + Delta(r.Low1, prev == null ? 0 : prev.Low1), null);
+                add(4, r.Low01.ToString("0") + Delta(r.Low01, prev == null ? 0 : prev.Low01), null);
+                add(5, r.AvgFrametime.ToString("0.00") + " ms", Res("Muted"));
+                host.Children.Add(row);
+            }
+        }
+
+        private static string Delta(double now, double before)
+        {
+            if (before <= 0) return "";
+            double pct = (now - before) * 100 / before;
+            return "  (" + (pct >= 0 ? "+" : "") + pct.ToString("0") + "%)";
         }
 
         // ================== Estabilidade do cabo ==================
@@ -726,8 +1050,9 @@ namespace VoltCore
             F<TextBlock>("MemModified").Text = m.ListsOk ? Fmt.MB(m.ModifiedMB) : "—";
             F<ProgressBar>("MemBar").Value = m.LoadPct;
 
-            if (_tick % 3 == 0 && _games.Count > 0) Task.Run(() => _watcher.Tick());
+            if (_tick % 3 == 0 && _games.Count > 0 && !Program.CaptureMode) Task.Run(() => _watcher.Tick());
             if (_tick % 2 == 0) Task.Run(() => LinkWatcher.Tick());
+            if (_tick % 3600 == 0) { var _ = CheckDrift(); }
             if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageHw").Visibility == Visibility.Visible) UpdateLive();
             if (_tick % 5 == 0 && IsVisible && F<FrameworkElement>("PageHw").Visibility == Visibility.Visible) RefreshLink();
             if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageGames").Visibility == Visibility.Visible)
@@ -737,7 +1062,7 @@ namespace VoltCore
             }
 
             // Limpeza automática (estilo ISLC)
-            if (Settings.GetBool("mem_auto", false) && m.ListsOk && (DateTime.Now - _lastAutoClean).TotalSeconds > 30)
+            if (Settings.GetBool("mem_auto", false) && !Program.CaptureMode && m.ListsOk && (DateTime.Now - _lastAutoClean).TotalSeconds > 30)
             {
                 int standbyLimit = Settings.GetInt("mem_standby", 1024), freeLimit = Settings.GetInt("mem_free", 2048);
                 if (m.StandbyMB > standbyLimit && m.FreeMB < freeLimit)

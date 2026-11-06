@@ -5,13 +5,16 @@ using System.Windows;
 [assembly: System.Reflection.AssemblyTitle("VoltCore Optimizer")]
 [assembly: System.Reflection.AssemblyProduct("VoltCore Optimizer")]
 [assembly: System.Reflection.AssemblyDescription("Otimizador para PC gamer: debloat, desempenho e redução de memória")]
-[assembly: System.Reflection.AssemblyVersion("1.3.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.3.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.4.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.4.0.0")]
 
 namespace VoltCore
 {
     public static class Program
     {
+        /// <summary>Modo de captura de telas: não altera nada no sistema (sem vigia de jogos, sem limpeza automática).</summary>
+        public static bool CaptureMode;
+
         [STAThread]
         public static int Main(string[] args)
         {
@@ -23,6 +26,7 @@ namespace VoltCore
 
             bool first;
             bool capture = args.Length > 1 && args[0] == "--screenshots";
+            CaptureMode = capture;
             using (var mutex = new Mutex(true, capture ? "VoltCoreOptimizer_Capture" : "VoltCoreOptimizer_SingleInstance", out first))
             {
                 if (!first)

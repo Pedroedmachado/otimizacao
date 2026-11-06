@@ -209,6 +209,59 @@
       <Setter Property="Padding" Value="6,4"/>
     </Style>
 
+    <!-- Caixa de seleção (ComboBox) escura -->
+    <Style TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="#E6EDF7"/>
+      <Setter Property="Padding" Value="10,7"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBoxItem">
+            <Border x:Name="b" Background="Transparent" Padding="{TemplateBinding Padding}" CornerRadius="6">
+              <ContentPresenter/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="b" Property="Background" Value="#1A2D52"/></Trigger>
+              <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#7CC4FF"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style TargetType="ComboBox">
+      <Setter Property="Foreground" Value="#E6EDF7"/>
+      <Setter Property="Height" Value="32"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid>
+              <ToggleButton Focusable="False" ClickMode="Press" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="bd" CornerRadius="8" Background="#0B1222" BorderBrush="#1D2B4A" BorderThickness="1">
+                      <Path HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,11,0" Data="M0,0 L4,4 L8,0" Stroke="#8394B4" StrokeThickness="1.6"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#2F8CFF"/></Trigger>
+                      <Trigger Property="IsChecked" Value="True"><Setter TargetName="bd" Property="BorderBrush" Value="#2F8CFF"/></Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter IsHitTestVisible="False" Margin="10,0,28,0" VerticalAlignment="Center" TextElement.Foreground="#E6EDF7"
+                                Content="{TemplateBinding SelectionBoxItem}" ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"/>
+              <Popup IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+                <Border Background="#0F1A30" BorderBrush="#1D2B4A" BorderThickness="1" CornerRadius="8" Padding="4" Margin="0,4,0,0"
+                        MinWidth="{Binding ActualWidth, RelativeSource={RelativeSource TemplatedParent}}" MaxHeight="320">
+                  <ScrollViewer VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
     <!-- Barra de rolagem fina -->
     <Style TargetType="ScrollBar">
       <Setter Property="Width" Value="8"/>
@@ -291,6 +344,7 @@
           <TextBlock Style="{StaticResource Label}" Text="SISTEMA" Margin="22,14,0,6"/>
           <RadioButton Style="{StaticResource Nav}" Tag="PageWin">⊞   Windows</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageGames">🎮   Jogos</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageNet">📶   Rede</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageHw">🖥   Hardware</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageRestore">↺   Restauração</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageSettings">⚙   Configurações</RadioButton>
@@ -316,6 +370,18 @@
         <StackPanel Margin="32,26,32,20">
           <TextBlock x:Name="Hello" Style="{StaticResource H1}" Text="Olá!"/>
           <TextBlock Style="{StaticResource Sub}" Text="Seu PC no máximo: menos lixo da Microsoft, mais FPS e menos input lag." Margin="0,0,0,20"/>
+          <Border x:Name="DriftBanner" Visibility="Collapsed" CornerRadius="12" Background="#2A1E08" BorderBrush="#F59E0B" BorderThickness="1" Padding="18,14" Margin="0,0,0,14">
+            <DockPanel>
+              <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button x:Name="DriftReapply" Style="{StaticResource Primary}" Content="Reaplicar" Padding="16,8"/>
+                <Button x:Name="DriftIgnore" Style="{StaticResource Ghost}" Content="Manter assim" Margin="10,0,0,0"/>
+              </StackPanel>
+              <StackPanel Margin="0,0,14,0">
+                <TextBlock x:Name="DriftTitle" FontSize="15" FontWeight="SemiBold" Foreground="#FBBF24"/>
+                <TextBlock x:Name="DriftList" Style="{StaticResource Sub}" FontSize="12.5" Margin="0,4,0,0"/>
+              </StackPanel>
+            </DockPanel>
+          </Border>
           <Grid>
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="280"/>
@@ -581,6 +647,41 @@
           </Border>
           <Border Style="{StaticResource CardBorder}">
             <StackPanel>
+              <DockPanel>
+                <Button x:Name="BenchClear" DockPanel.Dock="Right" Style="{StaticResource Ghost}" Content="Limpar resultados" Margin="0"/>
+                <StackPanel>
+                  <TextBlock Text="Teste de FPS (antes e depois)" FontSize="16" FontWeight="SemiBold"/>
+                  <TextBlock Style="{StaticResource Sub}" FontSize="12" Text="Mede FPS médio, 1% low e 0,1% low com o PresentMon (ferramenta oficial e gratuita da Intel). Faça um teste antes do Boost e outro depois, no mesmo lugar do jogo, para comparar."/>
+                </StackPanel>
+              </DockPanel>
+              <WrapPanel Margin="0,12,0,0">
+                <StackPanel Margin="0,0,14,8">
+                  <TextBlock Style="{StaticResource Label}" Text="JOGO"/>
+                  <ComboBox x:Name="BenchGame" Width="280" Margin="0,4,0,0"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,14,8">
+                  <TextBlock Style="{StaticResource Label}" Text="DURAÇÃO"/>
+                  <ComboBox x:Name="BenchDur" Width="110" Margin="0,4,0,0" SelectedIndex="1">
+                    <ComboBoxItem Content="30 s"/>
+                    <ComboBoxItem Content="60 s"/>
+                    <ComboBoxItem Content="120 s"/>
+                  </ComboBox>
+                </StackPanel>
+                <StackPanel Margin="0,0,14,8">
+                  <TextBlock Style="{StaticResource Label}" Text="NOME DO TESTE"/>
+                  <TextBox x:Name="BenchLabel" Width="160" Height="32" VerticalContentAlignment="Center" Margin="0,4,0,0" Text="Antes do Boost"/>
+                </StackPanel>
+                <StackPanel Margin="0,0,0,8" VerticalAlignment="Bottom" Orientation="Horizontal">
+                  <Button x:Name="BenchRefresh" Style="{StaticResource Ghost}" Content="↻"/>
+                  <Button x:Name="BenchGo" Style="{StaticResource Primary}" Content="Iniciar teste"/>
+                </StackPanel>
+              </WrapPanel>
+              <TextBlock x:Name="BenchStatus" Style="{StaticResource Sub}" FontSize="12.5" Margin="0,4,0,8" Text="O teste começa 10 segundos depois do clique: volte para o jogo e jogue normalmente."/>
+              <StackPanel x:Name="BenchList"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
               <TextBlock Text="Menos input lag dentro do jogo" FontSize="16" FontWeight="SemiBold"/>
               <TextBlock Style="{StaticResource Sub}" FontSize="12" Text="O que mais reduz o atraso entre o clique e a tela é configurado no jogo e no driver de vídeo — nenhum ajuste do Windows substitui isso. Siga nesta ordem:" Margin="0,2,0,10"/>
               <StackPanel x:Name="LatGuide"/>
@@ -621,6 +722,21 @@
               <TextBlock x:Name="LvVramSub" Style="{StaticResource Sub}" FontSize="12" Margin="0,8,0,0"/>
             </StackPanel></Border>
           </UniformGrid>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <DockPanel>
+                <Button x:Name="MouseGo" DockPanel.Dock="Right" Style="{StaticResource Primary}" Content="Testar mouse" VerticalAlignment="Top"/>
+                <StackPanel Margin="0,0,14,0">
+                  <TextBlock Text="Teste de polling do mouse" FontSize="16" FontWeight="SemiBold"/>
+                  <TextBlock Style="{StaticResource Sub}" FontSize="12" Text="Clique em Testar e mexa o mouse rápido, em círculos, por 5 segundos. Mostra quantas vezes por segundo o mouse envia a posição (125, 500, 1000 Hz…). Se der menos do que o mouse suporta, aumente no software do fabricante."/>
+                </StackPanel>
+              </DockPanel>
+              <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
+                <TextBlock x:Name="MouseHz" Text="— Hz" FontSize="30" FontWeight="SemiBold" MinWidth="170"/>
+                <TextBlock x:Name="MouseInfo" Style="{StaticResource Sub}" VerticalAlignment="Center" FontSize="12.5"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
           <Border Style="{StaticResource CardBorder}">
             <StackPanel>
               <DockPanel>
@@ -677,6 +793,32 @@
                 <Button x:Name="OpenLog" Style="{StaticResource Ghost}" Content="Ver registro de atividades"/>
                 <TextBlock x:Name="UndoStatus" Style="{StaticResource Sub}" VerticalAlignment="Center"/>
               </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- REDE -->
+      <ScrollViewer x:Name="PageNet" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Rede — ping, oscilação e perda"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Mede o ping até o seu roteador e até a internet ao mesmo tempo. Se o problema aparece já no roteador, é cabo/Wi-Fi/porta; se aparece só na internet, é o provedor." Margin="0,0,0,16"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="NetGo" Style="{StaticResource Primary}" Content="▶  Iniciar medição"/>
+                <Button x:Name="NetReset" Style="{StaticResource Ghost}" Content="Zerar" Margin="10,0,0,0"/>
+                <TextBlock Text="Servidor do jogo (opcional):" VerticalAlignment="Center" Foreground="{StaticResource Muted}" Margin="8,0,8,0"/>
+                <TextBox x:Name="NetCustom" Width="200" Height="32" VerticalContentAlignment="Center" ToolTip="IP ou endereço do servidor do jogo, se você souber (ex.: o que aparece no console do jogo)"/>
+              </StackPanel>
+              <TextBlock x:Name="NetLink" Style="{StaticResource Sub}" FontSize="12.5" Margin="0,10,0,0"/>
+            </StackPanel>
+          </Border>
+          <StackPanel x:Name="NetTargets"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Diagnóstico" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock x:Name="NetDiag" FontSize="13.5" Margin="0,8,0,0" Text="Clique em Iniciar medição. Dica: deixe rodando enquanto joga e volte aqui depois."/>
             </StackPanel>
           </Border>
         </StackPanel>
