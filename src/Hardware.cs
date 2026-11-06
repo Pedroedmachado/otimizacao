@@ -178,6 +178,15 @@ namespace VoltCore
                 });
             }
 
+            var drops = LinkWatcher.History().Where(e => e.Time > DateTime.Now.AddHours(-24)).ToList();
+            if (drops.Count > 0)
+                r.Add(new CheckItem
+                {
+                    Ok = false,
+                    Title = "Cabo de rede instável",
+                    Detail = drops.Count + " trocas de velocidade/quedas nas últimas 24 h (última às " + drops.Last().Time.ToString("HH:mm") + ": " + drops.Last().From + " → " + drops.Last().To + "). Cada troca derruba a internet por alguns segundos. Troque o cabo ou a porta do roteador e acompanhe o histórico abaixo."
+                });
+
             bool hpet = Platform.HpetForced();
             r.Add(new CheckItem
             {

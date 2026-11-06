@@ -71,6 +71,8 @@ namespace VoltCore
             F<TextBox>("MemFreeLimit").Text = Settings.GetInt("mem_free", 2048).ToString();
 
             WireSettings();
+            if (Settings.Get("link_since", "").Length == 0) Settings.Set("link_since", DateTime.Now.ToString("dd/MM HH:mm"));
+            WireLink();
 
             _games = Games.Load();
             _watcher.Games = _games;
@@ -125,6 +127,7 @@ namespace VoltCore
             if (page == "PageWin" && _clean == null) BuildCleaner();
             if (page == "PageRestore") LoadRestorePoints();
             if (page == "PageMem") RefreshTopProcesses();
+            if (page == "PageHw") RefreshLink();
         }
 
         /// <summary>Modo de desenvolvimento: salva um PNG de cada tela (usado para a documentação).</summary>
@@ -515,6 +518,41 @@ namespace VoltCore
             list.LostFocus += (a, b) => Settings.Set("close_list", list.Text.Replace("\r", "").Replace("\n", " "));
         }
 
+        // ================== Estabilidade do cabo ==================
+        private void WireLink()
+        {
+            LinkWatcher.Changed += ev => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                Status("🔌 Cabo de rede: " + ev.From + " → " + ev.To + " às " + ev.Time.ToString("HH:mm:ss"));
+                RefreshLink();
+            }));
+            F<Button>("LinkClear").Click += (a, b) => { LinkWatcher.Clear(); RefreshLink(); };
+            Task.Run(() => LinkWatcher.Tick());
+        }
+
+        private void RefreshLink()
+        {
+            var now = LinkWatcher.Current();
+            F<TextBlock>("LinkNow").Text = now.Count == 0 ? "Nenhuma placa de rede cabeada encontrada." : string.Join("\n", now.Select(n => "Agora: " + n.Item2 + "  ·  " + n.Item1));
+            var hist = LinkWatcher.History();
+            int day = hist.Count(e => e.Time > DateTime.Now.AddHours(-24));
+            var since = Settings.Get("link_since", "");
+            F<TextBlock>("LinkSummary").Text = hist.Count == 0
+                ? "Nenhuma troca registrada" + (since.Length > 0 ? " desde " + since : "") + ". Se continuar assim depois de trocar o cabo, o problema foi resolvido."
+                : day + " trocas nas últimas 24 h · " + hist.Count + " no total.";
+            F<TextBlock>("LinkSummary").Foreground = day > 0 ? Res("Warn") : Res("Muted");
+            var host = F<StackPanel>("LinkList");
+            host.Children.Clear();
+            foreach (var e in Enumerable.Reverse(hist).Take(12))
+            {
+                bool down = e.To == "desconectado" || (e.To.EndsWith("Mbps") && !e.From.EndsWith("Mbps"));
+                var row = new DockPanel { Margin = new Thickness(0, 2, 0, 2) };
+                row.Children.Add(new TextBlock { Text = e.Time.ToString("dd/MM HH:mm:ss"), Width = 120, Foreground = Res("Muted"), FontSize = 12.5 });
+                row.Children.Add(new TextBlock { Text = (down ? "▼ " : "▲ ") + e.From + " → " + e.To, Foreground = down ? Res("Warn") : Res("Ok"), FontSize = 12.5, FontWeight = FontWeights.SemiBold });
+                host.Children.Add(row);
+            }
+        }
+
         // ================== Guia de latência ==================
         private async Task BuildLatencyGuide()
         {
@@ -689,7 +727,9 @@ namespace VoltCore
             F<ProgressBar>("MemBar").Value = m.LoadPct;
 
             if (_tick % 3 == 0 && _games.Count > 0) Task.Run(() => _watcher.Tick());
+            if (_tick % 2 == 0) Task.Run(() => LinkWatcher.Tick());
             if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageHw").Visibility == Visibility.Visible) UpdateLive();
+            if (_tick % 5 == 0 && IsVisible && F<FrameworkElement>("PageHw").Visibility == Visibility.Visible) RefreshLink();
             if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageGames").Visibility == Visibility.Visible)
             {
                 double ms = TimerResolution.CurrentMs();

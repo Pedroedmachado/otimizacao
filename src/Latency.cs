@@ -225,6 +225,87 @@ if (Test-Path $f) {
         }
     }
 
+    // ======================= ESTABILIDADE DO CABO =======================
+    public class LinkEvent
+    {
+        public DateTime Time;
+        public string Adapter, From, To;
+    }
+
+    /// <summary>
+    /// Registra cada troca de velocidade/queda das placas de rede cabeadas (o driver Realtek não grava isso
+    /// no log do Windows). Histórico em %ProgramData%\VoltCore\link_log.tsv.
+    /// </summary>
+    public static class LinkWatcher
+    {
+        private const string File_ = "link_log.tsv";
+        private static readonly Dictionary<string, string> _last = new Dictionary<string, string>();
+        private static readonly Regex Virtual = new Regex("virtual|hyper-v|vpn|tap-|loopback|bluetooth|wan miniport|vmware|virtualbox|zerotier|tailscale|npcap|wireguard", RegexOptions.IgnoreCase);
+        private static int _busy;
+        public static event Action<LinkEvent> Changed;
+
+        public static string FormatSpeed(long bps)
+        {
+            if (bps <= 0) return "?";
+            return bps >= 1000000000 ? (bps / 1e9).ToString("0.#") + " Gbps" : (bps / 1e6).ToString("0") + " Mbps";
+        }
+
+        private static IEnumerable<System.Net.NetworkInformation.NetworkInterface> Wired()
+        {
+            return System.Net.NetworkInformation.NetworkInterface.GetAllNetworkInterfaces()
+                .Where(n => n.NetworkInterfaceType == System.Net.NetworkInformation.NetworkInterfaceType.Ethernet && !Virtual.IsMatch(n.Description + " " + n.Name));
+        }
+
+        /// <summary>Estado atual: (descrição, "1 Gbps" / "desconectado").</summary>
+        public static List<Tuple<string, string>> Current()
+        {
+            return Wired().Select(n => Tuple.Create(n.Description, State(n))).ToList();
+        }
+
+        private static string State(System.Net.NetworkInformation.NetworkInterface n)
+        {
+            return n.OperationalStatus == System.Net.NetworkInformation.OperationalStatus.Up ? FormatSpeed(n.Speed) : "desconectado";
+        }
+
+        public static void Tick()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _busy, 1) == 1) return;
+            try
+            {
+                foreach (var n in Wired())
+                {
+                    string st = State(n), prev;
+                    if (_last.TryGetValue(n.Id, out prev) && prev != st)
+                    {
+                        var ev = new LinkEvent { Time = DateTime.Now, Adapter = n.Description, From = prev, To = st };
+                        try { System.IO.File.AppendAllText(Store.PathOf(File_), ev.Time.ToString("yyyy-MM-dd HH:mm:ss") + "\t" + ev.Adapter + "\t" + ev.From + "\t" + ev.To + Environment.NewLine, System.Text.Encoding.UTF8); } catch { }
+                        if (Changed != null) Changed(ev);
+                    }
+                    _last[n.Id] = st;
+                }
+            }
+            catch { }
+            finally { System.Threading.Interlocked.Exchange(ref _busy, 0); }
+        }
+
+        public static List<LinkEvent> History()
+        {
+            var r = new List<LinkEvent>();
+            var lines = Store.ReadLines(File_);
+            if (lines.Count > 2000) { lines = lines.Skip(lines.Count - 1000).ToList(); Store.WriteLines(File_, lines); }
+            foreach (var l in lines)
+            {
+                var p = l.Split('\t');
+                DateTime t;
+                if (p.Length < 4 || !DateTime.TryParseExact(p[0], "yyyy-MM-dd HH:mm:ss", null, System.Globalization.DateTimeStyles.None, out t)) continue;
+                r.Add(new LinkEvent { Time = t, Adapter = p[1], From = p[2], To = p[3] });
+            }
+            return r;
+        }
+
+        public static void Clear() { Store.WriteLines(File_, new string[0]); }
+    }
+
     // ======================= DEFENDER =======================
     public static class DefenderExclusions
     {
