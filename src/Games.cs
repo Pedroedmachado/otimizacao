@@ -188,7 +188,18 @@ namespace VoltCore
         public List<GameEntry> Games = new List<GameEntry>();
         public HashSet<int> RunningGamePids = new HashSet<int>();
 
+        private int _busy;
+        private bool _session;
+        public bool InSession { get { return _session; } }
+
         public void Tick()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _busy, 1) == 1) return;
+            try { TickCore(); }
+            finally { System.Threading.Interlocked.Exchange(ref _busy, 0); }
+        }
+
+        private void TickCore()
         {
             var alive = new HashSet<int>();
             foreach (var g in Games.ToList())
@@ -230,6 +241,26 @@ namespace VoltCore
             }
             _handled.IntersectWith(alive);
             RunningGamePids = alive;
+
+            // Sessão de jogo: começa quando o primeiro jogo cadastrado abre, termina quando o último fecha.
+            if (alive.Count > 0 && !_session)
+            {
+                _session = true;
+                var done = new List<string>();
+                if (Settings.GetBool("session_timer", false)) { TimerResolution.Enable(); done.Add("timer 0,5 ms"); }
+                if (Settings.GetBool("session_close", false))
+                {
+                    var closed = BackgroundCloser.CloseAll();
+                    if (closed.Count > 0) done.Add("fechou " + string.Join(", ", closed));
+                }
+                if (done.Count > 0 && Message != null) Message("Sessão de jogo iniciada: " + string.Join(" · ", done));
+            }
+            else if (alive.Count == 0 && _session)
+            {
+                _session = false;
+                TimerResolution.Disable();
+                if (Message != null) Message("Sessão de jogo encerrada.");
+            }
         }
     }
 }

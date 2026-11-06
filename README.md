@@ -10,13 +10,14 @@ Otimizador para **PC gamer** no Windows 10/11: debloat do lixo da Microsoft (Cop
 |---|---|
 | **Painel** | Nota do PC (0–100), CPU/RAM ao vivo, memória liberada, último ponto de restauração e o que ainda dá para melhorar. |
 | **Boost** | 1 clique: cria ponto de restauração → aplica todos os ajustes recomendados → limpa temporários e memória → mostra a nota subindo. |
-| **Debloat** | Você escolhe item por item (níveis Essencial / Recomendado / Avançado): Copilot, Recall/Click to Do, IA no Paint/Bloco de Notas, Widgets, Bing no Iniciar, recomendações do Iniciar, telemetria (DiagTrack + tarefas), ID de anúncio, propagandas e apps patrocinados, Edge em segundo plano, **desinstalar Edge**, OneDrive, Teams, Clipchamp, Bing News/Clima, Solitaire, Office Hub e outros. |
+| **Debloat** | Você escolhe item por item (níveis Essencial / Recomendado / Avançado): Copilot, Recall/Click to Do, IA no Paint/Bloco de Notas, Widgets, Bing no Iniciar, recomendações do Iniciar, telemetria (DiagTrack + tarefas), ID de anúncio, propagandas e apps patrocinados, Edge em segundo plano, **desinstalar Edge**, OneDrive, Teams, Clipchamp, Bing News/Clima, Solitaire, Office Hub e outros, e **serviços inúteis** (relatórios de erro, mapas offline, fax, registro remoto e, opcionalmente, impressão e Xbox Live) — só os que existem no seu PC. |
 | **Desempenho** | Plano *Desempenho Máximo*, sem Power Throttling, prioridade de CPU/GPU para jogos (MMCSS), Modo de Jogo, sem Game DVR, HAGS, otimizações para jogos em janela, aceleração do mouse desligada, sem Teclas de Aderência, Nagle desligado, sem limitação de rede, sem P2P de atualizações, apps em segundo plano, SysMain, indexação, inicialização rápida, hibernação, dynamic tick. |
 | **Memória** | Mostra RAM em uso, livre de verdade, **cache standby** e lista modificada. Limpeza rápida (standby, segura com jogo aberto) ou completa (working sets). **Limpeza automática** estilo ISLC com limites configuráveis, rodando na bandeja. |
 | **Windows** | Inicialização limpa (liga/desliga sem desinstalar), limpeza de disco com tamanho antes de limpar (temp, Windows Update, Otimização de Entrega, relatórios de erro, miniaturas, cache de shaders, Lixeira), reparo (SFC, DISM, componentes, rede/DNS) e **revisão semanal** agendada. |
-| **Jogos** | Detecta jogos da Steam e Epic. Por jogo: prioridade alta, GPU de alto desempenho, sem otimizações de tela cheia, **núcleo 0 livre** e limpeza de memória ao abrir. |
-| **Hardware** | CPU, GPU/VRAM, RAM (tipo, velocidade, pentes), placa-mãe, discos (NVMe/SSD/HDD) e **check-up**: dual channel, XMP/EXPO, SSD, espaço livre, plano de energia, HAGS, Game DVR, inicialização. |
+| **Jogos** | Detecta jogos da Steam e Epic. Por jogo: prioridade alta, GPU de alto desempenho, sem otimizações de tela cheia, **núcleo 0 livre** e limpeza de memória ao abrir. **Sessão de jogo** automática: timer do Windows em **0,5 ms** e fechamento de programas em segundo plano enquanto o jogo está aberto — tudo volta ao normal quando o jogo fecha. |
+| **Hardware** | **Monitor ao vivo** (uso e clock efetivo da CPU, uso da GPU, VRAM, e temperatura/clock/consumo/fan em placas NVIDIA), CPU, GPU, RAM (tipo, velocidade, pentes), placa-mãe, discos (NVMe/SSD/HDD) e **check-up**: dual channel, XMP/EXPO, SSD, espaço livre, plano de energia, HAGS, Game DVR, inicialização. |
 | **Restauração** | Criar/listar pontos de restauração, abrir a Restauração do Sistema e **desfazer todos os ajustes** do app. |
+| **Configurações** | **Iniciar com o Windows** minimizado na bandeja (via tarefa agendada, sem pedir UAC toda vez) e escolher se fechar a janela mantém o app na bandeja. |
 
 <p>
 <img src="docs/debloat.png" width="49%"> <img src="docs/perf.png" width="49%">
@@ -49,6 +50,7 @@ Gera `dist\VoltCore.exe`. Para regenerar o ícone: `python assets\make_icon.py` 
 
 Parâmetros de linha de comando:
 
+- `--tray` — inicia escondido na bandeja (usado pelo início automático).
 - `--maintenance` — executa a revisão semanal (limpeza + memória) sem abrir a janela; usado pela tarefa agendada.
 - `--screenshots <pasta>` — salva um PNG de cada tela (usado para esta documentação).
 
@@ -65,6 +67,7 @@ src/
   SystemTools.cs   inicialização, limpeza de disco, pontos de restauração, revisão semanal
   Games.cs         detecção Steam/Epic, ajustes por jogo, vigia de processos
   Hardware.cs      informações de hardware, check-up e nota do PC
+  Monitor.cs       monitor ao vivo (PDH + nvidia-smi), timer 0,5 ms, iniciar com o Windows, sessão de jogo
 ```
 
 ## Aviso

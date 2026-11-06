@@ -163,6 +163,19 @@ namespace VoltCore
                 .Reg(EDGE_POL, "DefaultBrowserSettingEnabled", 0)
                 .Boost());
 
+            AddServices(L, "svc_diag", Level.Recomendado, "Relatórios de erro e diagnóstico",
+                "Desliga o envio de relatórios de erro à Microsoft, o coletor do Hub de Diagnóstico e o modo demonstração de loja.",
+                "WerSvc", "diagnosticshub.standardcollector.service", "RetailDemo", "wisvc");
+            AddServices(L, "svc_misc", Level.Recomendado, "Mapas offline, Fax e Registro Remoto",
+                "Serviços que quase ninguém usa num PC gamer: download de mapas offline, fax e edição remota do registro.",
+                "MapsBroker", "Fax", "RemoteRegistry");
+            AddServices(L, "svc_print", Level.Avancado, "Spooler de impressão",
+                "Desligue SOMENTE se você não usa impressora (nem 'Imprimir para PDF').",
+                "Spooler", "PrintNotify");
+            AddServices(L, "svc_xbox", Level.Avancado, "Serviços Xbox Live",
+                "Desligue SOMENTE se você não joga pelo app Xbox / Game Pass / Microsoft Store. Controles Xbox continuam funcionando.",
+                "XblAuthManager", "XblGameSave", "XboxNetApiSvc");
+
             var edgeExe = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), @"Microsoft\Edge\Application\msedge.exe");
             L.Add(T("debloat", "Microsoft Edge", "edge_remove", Level.Avancado, "Desinstalar o Microsoft Edge",
                 "Remove o navegador Edge. O WebView2 (usado por outros apps) é mantido. Tenha outro navegador instalado antes. Em algumas versões fora da Europa a Microsoft bloqueia a remoção — nesse caso nada é alterado.")
@@ -226,6 +239,11 @@ if (Test-Path $p) { Start-Process $p -ArgumentList '/uninstall' -Wait }",
             L.Add(T("perf", "Energia e CPU", "dynamic_tick", Level.Avancado, "Timer do sistema estável (dynamic tick)",
                 "Desliga o 'dynamic tick' para um timer mais consistente (frametime mais estável). Aumenta um pouco o consumo de energia — evite em notebook na bateria.")
                 .Ps("bcdedit /set disabledynamictick yes | Out-Null", "bcdedit /deletevalue disabledynamictick | Out-Null")
+                .Reboot());
+
+            L.Add(T("perf", "Energia e CPU", "timer_global", Level.Avancado, "Permitir timer de alta resolução global",
+                "No Windows 11 o pedido de timer de 0,5 ms só vale para o próprio programa. Isto permite que a opção 'Timer 0,5 ms durante o jogo' (aba Jogos) funcione com o VoltCore na bandeja.")
+                .Reg(@"HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel", "GlobalTimerResolutionRequests", 1)
                 .Reboot());
 
             L.Add(T("perf", "GPU e jogos", "game_mode", Level.Essencial, "Modo de Jogo do Windows",
@@ -338,6 +356,19 @@ if (Test-Path $p) { Start-Process $p -ArgumentList '/uninstall' -Wait }",
         }
 
         private static Tweak ById2(List<Tweak> l, string id) { return l.First(t => t.Id == id); }
+
+        /// <summary>Serviços: só inclui os que existem neste PC (nunca cria chaves de serviço novas).</summary>
+        private static void AddServices(List<Tweak> l, string id, Level lv, string title, string desc, params string[] services)
+        {
+            var existing = services.Where(s => Reg.Get(SVC + s, "Start") != null).ToList();
+            if (existing.Count == 0) return;
+            var t = T("debloat", "Serviços desnecessários", id, lv, title, desc + " (" + string.Join(", ", existing) + ")");
+            foreach (var s in existing) t.Reg(SVC + s, "Start", 4);
+            string list = string.Join(",", existing.Select(Shell.Q));
+            t.Ps("foreach ($s in @(" + list + ")) { Stop-Service -Name $s -Force -ErrorAction SilentlyContinue }",
+                 "foreach ($s in @(" + list + ")) { $st = (Get-ItemProperty \"HKLM:\\SYSTEM\\CurrentControlSet\\Services\\$s\" -ErrorAction SilentlyContinue).Start; if ($st -le 2) { Start-Service -Name $s -ErrorAction SilentlyContinue } }");
+            l.Add(t);
+        }
 
         private static string TasksPs(bool disable)
         {

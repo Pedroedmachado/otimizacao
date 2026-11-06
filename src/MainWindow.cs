@@ -70,6 +70,8 @@ namespace VoltCore
             F<TextBox>("MemStandbyLimit").Text = Settings.GetInt("mem_standby", 1024).ToString();
             F<TextBox>("MemFreeLimit").Text = Settings.GetInt("mem_free", 2048).ToString();
 
+            WireSettings();
+
             _games = Games.Load();
             _watcher.Games = _games;
             _watcher.Message += m => Dispatcher.BeginInvoke(new Action(() => Status("🎮 " + m)));
@@ -110,7 +112,7 @@ namespace VoltCore
             }
         }
 
-        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PagePerf", "PageMem", "PageWin", "PageGames", "PageHw", "PageRestore" };
+        private static readonly string[] Pages = { "PageHome", "PageBoost", "PageDebloat", "PagePerf", "PageMem", "PageWin", "PageGames", "PageHw", "PageRestore", "PageSettings" };
 
         private void ShowPage(string page)
         {
@@ -129,11 +131,12 @@ namespace VoltCore
         public async Task CaptureScreens(string dir)
         {
             Directory.CreateDirectory(dir);
+            F<Border>("AdminPill").Visibility = Visibility.Collapsed;
             await Task.Delay(9000);
             foreach (var p in Pages)
             {
                 Go(p);
-                await Task.Delay(p == "PageRestore" || p == "PageWin" ? 4000 : 1200);
+                await Task.Delay(p == "PageRestore" || p == "PageWin" || p == "PageHw" ? 5000 : 1200);
                 UpdateLayout();
                 var src = PresentationSource.FromVisual(this);
                 double sx = src != null ? src.CompositionTarget.TransformToDevice.M11 : 1;
@@ -161,6 +164,10 @@ namespace VoltCore
             await RefreshTweakStates();
             await RefreshHardware();
             RefreshRestoreSummary();
+            var auto = F<CheckBox>("SetAutostart");
+            auto.IsChecked = await Task.Run(() => { AutoStart.Repair(); return AutoStart.IsEnabled(); });
+            auto.Checked += async (a, b) => { var err = await Task.Run(() => AutoStart.Set(true)); F<TextBlock>("SetStatus").Text = err.Length == 0 ? "O VoltCore vai abrir na bandeja quando você entrar no Windows." : err; };
+            auto.Unchecked += async (a, b) => { await Task.Run(() => AutoStart.Set(false)); F<TextBlock>("SetStatus").Text = "Início automático desligado."; };
             F<CheckBox>("WeeklyToggle").IsChecked = await Task.Run(() => Maintenance.IsScheduled());
             F<CheckBox>("WeeklyToggle").Checked += async (a, b) => { var ok = await Task.Run(() => Maintenance.Schedule(true)); Status(ok ? "Revisão semanal agendada para domingo, 12:00." : "Não foi possível agendar a revisão semanal."); };
             F<CheckBox>("WeeklyToggle").Unchecked += async (a, b) => { await Task.Run(() => Maintenance.Schedule(false)); Status("Revisão semanal removida."); };
@@ -464,6 +471,80 @@ namespace VoltCore
             F<Button>("OpenLog").Click += (a, b) => { var p = Store.PathOf("log.txt"); if (!File.Exists(p)) File.WriteAllText(p, ""); Shell.Open(p); };
         }
 
+        // ================== Configurações e sessão de jogo ==================
+        private void WireSettings()
+        {
+            var tray = F<CheckBox>("SetTray");
+            tray.IsChecked = Settings.GetBool("close_to_tray", true);
+            tray.Checked += (a, b) => Settings.Set("close_to_tray", true);
+            tray.Unchecked += (a, b) => Settings.Set("close_to_tray", false);
+
+            var ver = Assembly.GetExecutingAssembly().GetName().Version;
+            F<TextBlock>("AboutText").Text = "VoltCore Optimizer " + ver.Major + "." + ver.Minor + "." + ver.Build + " · Dados e backups em " + Store.Dir;
+            F<Button>("OpenData").Click += (a, b) => Shell.Open(Store.Dir);
+            F<Button>("OpenRepo").Click += (a, b) => Shell.Open("https://github.com/Pedroedmachado/otimizacao");
+
+            var timer = F<CheckBox>("SessTimer");
+            timer.IsChecked = Settings.GetBool("session_timer", false);
+            timer.Checked += async (a, b) =>
+            {
+                Settings.Set("session_timer", true);
+                var tg = Catalog.ById("timer_global");
+                if (Environment.OSVersion.Version.Build >= 22000 && tg != null && !TweakEngine.IsApplied(tg))
+                {
+                    await Task.Run(() => TweakEngine.Apply(tg));
+                    SetBadge(tg, true);
+                    F<TextBlock>("RebootHint").Visibility = Visibility.Visible;
+                    Status("Timer global permitido no Windows 11 — reinicie o PC para valer.");
+                }
+            };
+            timer.Unchecked += (a, b) => { Settings.Set("session_timer", false); if (!_watcher.InSession) TimerResolution.Disable(); };
+
+            var close = F<CheckBox>("SessClose");
+            close.IsChecked = Settings.GetBool("session_close", false);
+            close.Checked += (a, b) => Settings.Set("session_close", true);
+            close.Unchecked += (a, b) => Settings.Set("session_close", false);
+            var list = F<TextBox>("SessCloseList");
+            list.Text = Settings.Get("close_list", BackgroundCloser.DefaultList);
+            list.LostFocus += (a, b) => Settings.Set("close_list", list.Text.Replace("\r", "").Replace("\n", " "));
+        }
+
+        // ================== Monitor ao vivo ==================
+        private LiveMonitor _live;
+        private int _liveBusy;
+
+        private void UpdateLive()
+        {
+            if (System.Threading.Interlocked.Exchange(ref _liveBusy, 1) == 1) return;
+            Task.Run(() =>
+            {
+                if (_live == null) _live = new LiveMonitor();
+                return _live.Sample();
+            }).ContinueWith(t =>
+            {
+                _liveBusy = 0;
+                if (t.IsFaulted) return;
+                var s = t.Result;
+                F<TextBlock>("LvCpu").Text = s.CpuPct.ToString("0") + "%";
+                F<ProgressBar>("LvCpuBar").Value = s.CpuPct;
+                F<TextBlock>("LvCpuSub").Text = s.CpuMhz > 0 ? "Clock efetivo " + (s.CpuMhz / 1000).ToString("0.00") + " GHz" : "";
+                if (s.GpuPct >= 0) { F<TextBlock>("LvGpu").Text = s.GpuPct.ToString("0") + "%"; F<ProgressBar>("LvGpuBar").Value = s.GpuPct; }
+                var parts = new List<string>();
+                if (s.GpuTemp >= 0) parts.Add(s.GpuTemp.ToString("0") + " °C");
+                if (s.GpuClock >= 0) parts.Add(s.GpuClock.ToString("0") + " MHz");
+                if (s.GpuPower >= 0) parts.Add(s.GpuPower.ToString("0") + " W");
+                if (s.GpuFan >= 0) parts.Add("fan " + s.GpuFan.ToString("0") + "%");
+                F<TextBlock>("LvGpuSub").Text = parts.Count > 0 ? string.Join(" · ", parts) : (_live != null && !_live.HasNvidia ? "Temperatura disponível só em placas NVIDIA" : "");
+                if (s.VramUsedMB >= 0)
+                {
+                    double total = _hw != null && _hw.GpuVramGB > 0 ? _hw.GpuVramGB * 1024 : 0;
+                    F<TextBlock>("LvVram").Text = Fmt.MB(s.VramUsedMB);
+                    F<ProgressBar>("LvVramBar").Value = total > 0 ? Math.Min(100, s.VramUsedMB * 100 / total) : 0;
+                    F<TextBlock>("LvVramSub").Text = total > 0 ? "de " + Fmt.MB(total) : "";
+                }
+            }, TaskScheduler.FromCurrentSynchronizationContext());
+        }
+
         // ================== Memória ==================
         private async Task CleanMemory(bool deep)
         {
@@ -521,6 +602,12 @@ namespace VoltCore
             F<ProgressBar>("MemBar").Value = m.LoadPct;
 
             if (_tick % 3 == 0 && _games.Count > 0) Task.Run(() => _watcher.Tick());
+            if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageHw").Visibility == Visibility.Visible) UpdateLive();
+            if (_tick % 2 == 0 && IsVisible && F<FrameworkElement>("PageGames").Visibility == Visibility.Visible)
+            {
+                double ms = TimerResolution.CurrentMs();
+                F<TextBlock>("SessTimerInfo").Text = (ms > 0 ? "Timer atual do Windows: " + ms.ToString("0.0###") + " ms" : "") + (_watcher.InSession ? " · sessão de jogo ativa" : "");
+            }
 
             // Limpeza automática (estilo ISLC)
             if (Settings.GetBool("mem_auto", false) && m.ListsOk && (DateTime.Now - _lastAutoClean).TotalSeconds > 30)
@@ -867,8 +954,7 @@ namespace VoltCore
 
         private void OnClosing(object sender, System.ComponentModel.CancelEventArgs e)
         {
-            bool background = Settings.GetBool("mem_auto", false) || _games.Any(g => g.FreeCore0 || g.PurgeOnStart);
-            if (!_exiting && background)
+            if (!_exiting && Settings.GetBool("close_to_tray", true))
             {
                 e.Cancel = true;
                 Hide();
@@ -879,6 +965,7 @@ namespace VoltCore
                 }
                 return;
             }
+            TimerResolution.Disable();
             _tray.Visible = false;
             _tray.Dispose();
             Application.Current.Shutdown();

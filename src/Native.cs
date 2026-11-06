@@ -71,6 +71,26 @@ namespace VoltCore
         [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
         public static extern int SHQueryRecycleBin(string rootPath, ref SHQUERYRBINFO info);
 
+        // ---- Timer do sistema ----
+        [DllImport("ntdll.dll")]
+        public static extern int NtSetTimerResolution(uint desired, bool set, out uint current);
+
+        [DllImport("ntdll.dll")]
+        public static extern int NtQueryTimerResolution(out uint min, out uint max, out uint current);
+
+        // ---- Contadores de desempenho (nomes em inglês, funciona em Windows em português) ----
+        [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+        public static extern int PdhOpenQuery(string dataSource, IntPtr userData, out IntPtr query);
+
+        [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+        public static extern int PdhAddEnglishCounter(IntPtr query, string path, IntPtr userData, out IntPtr counter);
+
+        [DllImport("pdh.dll")]
+        public static extern int PdhCollectQueryData(IntPtr query);
+
+        [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
+        public static extern int PdhGetFormattedCounterArray(IntPtr counter, uint format, ref uint bufferSize, out uint itemCount, IntPtr buffer);
+
         public static bool EnablePrivilege(string name)
         {
             IntPtr token;

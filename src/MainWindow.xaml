@@ -293,6 +293,7 @@
           <RadioButton Style="{StaticResource Nav}" Tag="PageGames">🎮   Jogos</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageHw">🖥   Hardware</RadioButton>
           <RadioButton Style="{StaticResource Nav}" Tag="PageRestore">↺   Restauração</RadioButton>
+          <RadioButton Style="{StaticResource Nav}" Tag="PageSettings">⚙   Configurações</RadioButton>
         </StackPanel>
       </DockPanel>
     </Border>
@@ -562,6 +563,20 @@
         <StackPanel Margin="32,26,32,20">
           <TextBlock Style="{StaticResource H1}" Text="Jogos — cada jogo no máximo"/>
           <TextBlock Style="{StaticResource Sub}" Text="Ajustes específicos por jogo: prioridade alta, GPU dedicada, sem otimizações de tela cheia e núcleo 0 livre (o Windows atende interrupções no núcleo 0; deixá-lo livre reduz travadinhas)." Margin="0,0,0,16"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Sessão de jogo" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock Style="{StaticResource Sub}" FontSize="12" Text="Ativado automaticamente quando qualquer jogo da lista abre, e desfeito quando o último fecha. Requer o VoltCore aberto ou na bandeja." Margin="0,2,0,12"/>
+              <CheckBox x:Name="SessTimer" Style="{StaticResource Toggle}" Content="Timer do Windows em 0,5 ms durante o jogo (frametime mais estável)"/>
+              <TextBlock x:Name="SessTimerInfo" Style="{StaticResource Sub}" FontSize="11.5" Margin="50,2,0,10"/>
+              <CheckBox x:Name="SessClose" Style="{StaticResource Toggle}" Content="Fechar programas em segundo plano ao abrir o jogo"/>
+              <StackPanel Orientation="Horizontal" Margin="50,6,0,0">
+                <TextBlock Text="Programas:" VerticalAlignment="Center" Foreground="{StaticResource Muted}"/>
+                <TextBox x:Name="SessCloseList" Width="460" Margin="8,0,0,0"/>
+              </StackPanel>
+              <TextBlock Style="{StaticResource Sub}" FontSize="11.5" Margin="50,4,0,0" Text="Nomes dos processos separados por vírgula (como no Gerenciador de Tarefas, aba Detalhes, sem .exe). Salve seu trabalho nesses programas antes de jogar."/>
+            </StackPanel>
+          </Border>
           <StackPanel Orientation="Horizontal" Margin="0,0,0,16">
             <Button x:Name="GameDetect" Style="{StaticResource Primary}" Content="Detectar jogos (Steam/Epic)"/>
             <Button x:Name="GameAdd" Style="{StaticResource Ghost}" Content="+ Adicionar jogo (.exe)" Margin="10,0,0,0"/>
@@ -576,6 +591,26 @@
         <StackPanel Margin="32,26,32,20">
           <TextBlock Style="{StaticResource H1}" Text="Hardware e check-up"/>
           <TextBlock Style="{StaticResource Sub}" Text="Seu PC por dentro e o que está segurando o desempenho." Margin="0,0,0,20"/>
+          <UniformGrid Columns="3">
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,14"><StackPanel>
+              <TextBlock Style="{StaticResource Label}" Text="CPU"/>
+              <TextBlock x:Name="LvCpu" FontSize="26" FontWeight="SemiBold" Text="—" Margin="0,6,0,0"/>
+              <ProgressBar x:Name="LvCpuBar" Maximum="100" Margin="0,8,0,0"/>
+              <TextBlock x:Name="LvCpuSub" Style="{StaticResource Sub}" FontSize="12" Margin="0,8,0,0"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,12,14"><StackPanel>
+              <TextBlock Style="{StaticResource Label}" Text="GPU"/>
+              <TextBlock x:Name="LvGpu" FontSize="26" FontWeight="SemiBold" Text="—" Margin="0,6,0,0"/>
+              <ProgressBar x:Name="LvGpuBar" Maximum="100" Margin="0,8,0,0"/>
+              <TextBlock x:Name="LvGpuSub" Style="{StaticResource Sub}" FontSize="12" Margin="0,8,0,0"/>
+            </StackPanel></Border>
+            <Border Style="{StaticResource CardBorder}" Margin="0,0,0,14"><StackPanel>
+              <TextBlock Style="{StaticResource Label}" Text="MEMÓRIA DE VÍDEO"/>
+              <TextBlock x:Name="LvVram" FontSize="26" FontWeight="SemiBold" Text="—" Margin="0,6,0,0"/>
+              <ProgressBar x:Name="LvVramBar" Maximum="100" Margin="0,8,0,0"/>
+              <TextBlock x:Name="LvVramSub" Style="{StaticResource Sub}" FontSize="12" Margin="0,8,0,0"/>
+            </StackPanel></Border>
+          </UniformGrid>
           <Border Style="{StaticResource CardBorder}">
             <Grid x:Name="HwGrid">
               <Grid.ColumnDefinitions><ColumnDefinition Width="160"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
@@ -617,6 +652,33 @@
                 <Button x:Name="UndoAll" Style="{StaticResource Ghost}" Content="Desfazer todos os ajustes"/>
                 <Button x:Name="OpenLog" Style="{StaticResource Ghost}" Content="Ver registro de atividades"/>
                 <TextBlock x:Name="UndoStatus" Style="{StaticResource Sub}" VerticalAlignment="Center"/>
+              </StackPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+      </ScrollViewer>
+
+      <!-- CONFIGURAÇÕES -->
+      <ScrollViewer x:Name="PageSettings" VerticalScrollBarVisibility="Auto" Visibility="Collapsed">
+        <StackPanel Margin="32,26,32,20">
+          <TextBlock Style="{StaticResource H1}" Text="Configurações"/>
+          <TextBlock Style="{StaticResource Sub}" Text="Como o VoltCore se comporta no seu PC." Margin="0,0,0,20"/>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <CheckBox x:Name="SetAutostart" Style="{StaticResource Toggle}" Content="Iniciar com o Windows (minimizado na bandeja)" FontSize="15"/>
+              <TextBlock Style="{StaticResource Sub}" FontSize="12" Margin="50,4,0,14" Text="Necessário para a limpeza automática de memória e a sessão de jogo funcionarem depois de reiniciar. Usa uma tarefa agendada, então não aparece o pedido de administrador a cada inicialização."/>
+              <CheckBox x:Name="SetTray" Style="{StaticResource Toggle}" Content="Ao fechar a janela, continuar rodando na bandeja" FontSize="15"/>
+              <TextBlock Style="{StaticResource Sub}" FontSize="12" Margin="50,4,0,0" Text="Desligado: fechar a janela encerra o app (a limpeza automática e a sessão de jogo param)."/>
+              <TextBlock x:Name="SetStatus" Style="{StaticResource Sub}" FontSize="12" Margin="0,12,0,0"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBorder}">
+            <StackPanel>
+              <TextBlock Text="Sobre" FontSize="16" FontWeight="SemiBold"/>
+              <TextBlock x:Name="AboutText" Style="{StaticResource Sub}" Margin="0,6,0,12"/>
+              <StackPanel Orientation="Horizontal">
+                <Button x:Name="OpenData" Style="{StaticResource Ghost}" Content="Abrir pasta de dados"/>
+                <Button x:Name="OpenRepo" Style="{StaticResource Ghost}" Content="Página do projeto no GitHub"/>
               </StackPanel>
             </StackPanel>
           </Border>

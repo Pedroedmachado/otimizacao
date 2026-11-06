@@ -5,8 +5,8 @@ using System.Windows;
 [assembly: System.Reflection.AssemblyTitle("VoltCore Optimizer")]
 [assembly: System.Reflection.AssemblyProduct("VoltCore Optimizer")]
 [assembly: System.Reflection.AssemblyDescription("Otimizador para PC gamer: debloat, desempenho e redução de memória")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
-[assembly: System.Reflection.AssemblyFileVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.0.0")]
+[assembly: System.Reflection.AssemblyFileVersion("1.1.0.0")]
 
 namespace VoltCore
 {
@@ -42,7 +42,7 @@ namespace VoltCore
                     var dir = args[1];
                     w.Loaded += async (s, e) => await w.CaptureScreens(dir);
                 }
-                w.Show();
+                if (Array.IndexOf(args, "--tray") < 0) w.Show();
                 app.Run();
             }
             return 0;
